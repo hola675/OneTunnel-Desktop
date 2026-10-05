@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "platform": "windows-x86_64",
+  "components": {
+    "wstunnel": {
+      "version": null,
+      "source": "erebe/wstunnel",
+      "sha256": null
+    },
+    "xray": {
+      "version": null,
+      "source": "XTLS/Xray-core",
+      "sha256": null
+    },
+    "tun2socks": {
+      "version": null,
+      "source": "xjasonlyu/tun2socks",
+      "sha256": null
+    },
+    "wintun": {
+      "version": null,
+      "source": "WireGuard/wintun",
+      "sha256": null
+    }
+  }
+}

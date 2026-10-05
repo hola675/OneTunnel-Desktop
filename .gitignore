@@ -1,0 +1,37 @@
+# Local secrets and credentials
+.env
+.env.*
+!.env.example
+*.p12
+*.pfx
+*.key
+*.pem
+secrets/
+credentials/
+
+# Generated application state, logs, and configurations
+logs/
+*.log
+config.local.*
+runtime/generated/
+runtime/bin/*
+!runtime/bin/.gitkeep
+
+# Build outputs and tool caches
+node_modules/
+dist/
+target/
+out/
+.tauri/
+.gradle/
+
+# IDE and local machine files
+.idea/
+.vscode/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# Keep the M0 directory placeholders tracked
+!.gitkeep
