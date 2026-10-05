@@ -1,26 +1,77 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "platform": "windows-x86_64",
   "components": {
     "wstunnel": {
-      "version": null,
-      "source": "erebe/wstunnel",
-      "sha256": null
+      "upstream": "erebe/wstunnel",
+      "version": "11.0.0",
+      "tag": "v11.0.0",
+      "architecture": "windows-amd64",
+      "artifact": "wstunnel_11.0.0_windows_amd64.tar.gz",
+      "sourceUrl": "https://github.com/erebe/wstunnel/releases/download/v11.0.0/wstunnel_11.0.0_windows_amd64.tar.gz",
+      "checksumUrl": "https://github.com/erebe/wstunnel/releases/download/v11.0.0/checksums.txt",
+      "archiveSha256": "024323c9c2dd1ed1c6f38d417d9b2776e2f0083bba507e80d4a8124c8451b164",
+      "runtimeFile": "wstunnel.exe",
+      "runtimeSha256": "2bc2e95072f7e0a3335dc00bb8185a419c8d1e9431f6e21cab67dde860ed13ae",
+      "verificationCommand": "wstunnel.exe --version; wstunnel.exe client --help",
+      "license": "BSD-3-Clause",
+      "licenseUrl": "https://raw.githubusercontent.com/erebe/wstunnel/v11.0.0/LICENSE",
+      "releaseClassification": "immutable",
+      "licenseDirectory": "runtime/licenses/wstunnel"
     },
     "xray": {
-      "version": null,
-      "source": "XTLS/Xray-core",
-      "sha256": null
+      "upstream": "XTLS/Xray-core",
+      "version": "26.9.9",
+      "tag": "v26.9.9",
+      "architecture": "windows-amd64",
+      "artifact": "Xray-windows-64.zip",
+      "sourceUrl": "https://github.com/XTLS/Xray-core/releases/download/v26.9.9/Xray-windows-64.zip",
+      "archiveSha256": "244deaba2098c2964e49bba90df3707777e5f5f428a82d2f29604015f24beec2",
+      "runtimeFile": "xray.exe",
+      "runtimeSha256": "0d0fc0ea2b05641acb78c01fc36ad694e7b029861b2d5eb93da0e3e9fda9a98f",
+      "verificationCommand": "xray.exe version; xray.exe run -test -config tests/fixtures/xray/reality-validation.json",
+      "license": "MPL-2.0",
+      "licenseUrl": "https://raw.githubusercontent.com/XTLS/Xray-core/v26.9.9/LICENSE",
+      "licenseDirectory": "runtime/licenses/xray",
+      "candidateTags": [
+        "v26.9.9",
+        "v26.7.28"
+      ],
+      "releaseClassification": "pre-release",
+      "status": "PINNED_COMPATIBLE"
     },
     "tun2socks": {
-      "version": null,
-      "source": "xjasonlyu/tun2socks",
-      "sha256": null
+      "upstream": "xjasonlyu/tun2socks",
+      "version": "2.7.0",
+      "tag": "v2.7.0",
+      "architecture": "windows-amd64-generic",
+      "artifact": "tun2socks-windows-amd64.zip",
+      "sourceUrl": "https://github.com/xjasonlyu/tun2socks/releases/download/v2.7.0/tun2socks-windows-amd64.zip",
+      "archiveSha256": "c5d46e9452f6c9cc7c15ab9158d6d6a0169ceecd6bca019ce476b49337d2be43",
+      "extractFile": "tun2socks-windows-amd64.exe",
+      "runtimeFile": "tun2socks.exe",
+      "runtimeSha256": "076b3c3d6a372bae3f49f2b415a4105f70c30a3ed3caaed7979390e649892559",
+      "verificationCommand": "tun2socks.exe --version; tun2socks.exe --help",
+      "license": "MIT",
+      "licenseUrl": "https://raw.githubusercontent.com/xjasonlyu/tun2socks/v2.7.0/LICENSE",
+      "releaseClassification": "non-pre-release",
+      "licenseDirectory": "runtime/licenses/tun2socks"
     },
     "wintun": {
-      "version": null,
-      "source": "WireGuard/wintun",
-      "sha256": null
+      "upstream": "Wintun",
+      "version": "0.14.1",
+      "tag": "0.14.1",
+      "architecture": "windows-amd64",
+      "artifact": "wintun-0.14.1.zip",
+      "sourceUrl": "https://www.wintun.net/builds/wintun-0.14.1.zip",
+      "archiveSha256": "07c256185d6ee3652e09fa55c0b673e2624b565e02c4b9091c79ca7d2f24ef51",
+      "runtimeFile": "wintun.dll",
+      "runtimeSha256": "e5da8447dc2c320edc0fc52fa01885c103de8c118481f683643cacc3220dafce",
+      "verificationCommand": "Get-FileHash runtime/bin/wintun.dll -Algorithm SHA256",
+      "extractPath": "wintun/bin/amd64/wintun.dll",
+      "license": "upstream-distribution-license",
+      "releaseClassification": "official-signed-distribution",
+      "licenseDirectory": "runtime/licenses/wintun"
     }
   }
 }

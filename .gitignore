@@ -16,6 +16,8 @@ config.local.*
 runtime/generated/
 runtime/bin/*
 !runtime/bin/.gitkeep
+runtime/downloads/*
+!runtime/downloads/.gitkeep
 
 # Build outputs and tool caches
 node_modules/
@@ -28,6 +30,7 @@ out/
 # IDE and local machine files
 .idea/
 .vscode/
+.serena/
 *.user
 *.suo
 *.userosscache

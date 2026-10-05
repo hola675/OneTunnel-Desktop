@@ -6,12 +6,12 @@ TCP/443.
 
 ## Estado
 
-**M0 — Architecture / Bootstrap**
+**M0.2 — Runtime Pinning**
 
 Este hito contiene la auditoría del entorno y de las referencias upstream, la
-arquitectura congelada, el modelo de seguridad, el manifiesto de runtimes y
-scripts de validación. La VPN todavía no funciona: no hay GUI, Tauri, Wintun,
-tun2socks, conexión de sistema ni binarios runtime descargados.
+arquitectura congelada, el modelo de seguridad, runtimes oficiales fijados,
+hashes verificables y probes offline. La VPN todavía no funciona: no hay GUI,
+Tauri, adaptador Wintun, conexión de sistema ni networking modificado.
 
 ## Arquitectura objetivo
 
@@ -37,8 +37,8 @@ modifican. La ubicación exacta y sus limitaciones de procedencia están en
 
 ## Roadmap
 
-1. **M0** — Bootstrap, auditoría y arquitectura base (actual).
-2. **M0.2** — Pinning de runtimes, versiones oficiales y SHA256.
+1. **M0** — Bootstrap, auditoría y arquitectura base (completado).
+2. **M0.2** — Pinning de runtimes, versiones oficiales y SHA256 (actual).
 3. **PoC de red** — Xray, forwarding local, wstunnel y relay restringido.
 4. **Cliente Windows** — Tauri, Wintun, tun2socks, rutas, DNS, rollback y
    diagnóstico.
