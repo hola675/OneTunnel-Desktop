@@ -65,7 +65,7 @@ $webViewKeys = @(
     'HKCU:\SOFTWARE\Microsoft\EdgeUpdate\Clients'
 )
 $webView2 = $webViewKeys | Where-Object {
-    Test-Path -LiteralPath $_ -and (Get-ChildItem -LiteralPath $_ -ErrorAction SilentlyContinue | Where-Object { $_.GetValue('name') -match 'WebView2' })
+    (Test-Path -LiteralPath $_) -and ($null -ne (Get-ChildItem -LiteralPath $_ -ErrorAction SilentlyContinue | Where-Object { $_.GetValue('name') -match 'WebView2' }))
 } | Select-Object -First 1
 if ($webView2) {
     Write-Check 'WebView2' 'PASS' "detected under $webView2"

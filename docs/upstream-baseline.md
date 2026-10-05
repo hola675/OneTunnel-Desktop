@@ -5,6 +5,7 @@ Fecha de auditoría: **2026-10-05**.
 Las dos referencias encontradas son copias de trabajo/snapshots sin directorio
 `.git` en su raíz ni metadatos Git anidados detectables. Por ello no es posible
 afirmar de forma reproducible un remote, branch o commit SHA. No se inventan
+esos valores.
 
 ## 1VPN Browser Extension
 
