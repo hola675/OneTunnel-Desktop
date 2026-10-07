@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "provenance": "Public Free configuration distributed in the local official 1VPN Android snapshot; not user secrets or Premium data.",
+  "sources": [
+    "reference/android-app-master/android-app-master/V2rayNG/app/src/1vpn/java/com/one/vpnapp/util/ServerConfigUtil.kt",
+    "reference/android-app-master/android-app-master/V2rayNG/app/src/1vpn/java/com/one/vpnapp/ui/FreeLocations.kt",
+    "reference/android-app-master/android-app-master/V2rayNG/app/src/1vpn/assets/xray_config_template.json"
+  ],
+  "uuid": "44ae52b9-76fc-444d-8e43-186b4384b80a",
+  "publicKey": "PryGoq51ilG0eLUPl9i0xCvmk1xpwkyFSr_tG4GNLlU",
+  "shortId": "1d86d17709852910",
+  "locations": [
+    { "city": "Amsterdam", "cityCode": "ams", "country": "Netherlands", "countryCode": "nl", "servers": [
+      { "host": "free-amsterdam-node-1.cloudwidecdn.com", "realityServerName": "www.apple.com" },
+      { "host": "free-amsterdam-node-2.cloudwidecdn.com", "realityServerName": "www.cloudflare.com" }
+    ] },
+    { "city": "Singapore", "cityCode": "sgp", "country": "Singapore", "countryCode": "sg", "servers": [
+      { "host": "free-singapore-node-1.cloudwidecdn.com", "realityServerName": "www.apple.com" },
+      { "host": "free-singapore-node-2.cloudwidecdn.com", "realityServerName": "www.cloudflare.com" }
+    ] },
+    { "city": "Los Angeles", "cityCode": "lax", "country": "United States", "countryCode": "us", "servers": [
+      { "host": "free-los-angeles-node-1.cloudwidecdn.com", "realityServerName": "www.apple.com" },
+      { "host": "free-los-angeles-node-2.cloudwidecdn.com", "realityServerName": "www.cloudflare.com" }
+    ] }
+  ]
+}

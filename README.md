@@ -1,48 +1,43 @@
 # OneTunnel Desktop
 
-Cliente VPN autónomo para Windows 10/11 x86_64 que utilizará 1VPN como
-proveedor, Xray con VLESS + Reality y wstunnel como transporte WSS/TLS por
-TCP/443.
+Cliente Windows 10/11 x64 para 1VPN. M1 certifica Xray + VLESS + Reality
+mediante SOCKS local; todavía no captura tráfico del sistema.
 
 ## Estado
 
-**M0.2 — Runtime Pinning**
+| Hito | Resultado |
+| --- | --- |
+| M0 | PASS — bootstrap y auditoría |
+| M0.2 | PASS — runtimes fijados y SHA256 |
+| M0.2.1 | PASS — smoke PowerShell 7 / Windows PowerShell 5.1 |
+| M1 | PASS — Xray + 1VPN Free Direct |
+| M1.2 | Pendiente — consolidación de arquitectura |
+| M2 | Pendiente — Windows system VPN |
 
-Este hito contiene la auditoría del entorno y de las referencias upstream, la
-arquitectura congelada, el modelo de seguridad, runtimes oficiales fijados,
-hashes verificables y probes offline. La VPN todavía no funciona: no hay GUI,
-Tauri, adaptador Wintun, conexión de sistema ni networking modificado.
+## Gate certificado
 
-## Arquitectura objetivo
+~~~text
+Windows HTTPS probe → SOCKS loopback → Xray → VLESS + Reality → 1VPN → Internet
+~~~
 
-```text
-Windows Applications → Wintun → tun2socks → Xray SOCKS
-  → Xray VLESS/Reality → wstunnel client → WSS/TLS TCP/443
-  → wstunnel relay → 1VPN:443 → Internet
-```
+La evidencia y la política Schannel están en
+[Direct Gate M1](docs/M1-TRANSPORT-POC.md).
+La prueba usa datos públicos Free, conserva xtls-rprx-vision, confirma HTTPS
+y cambio de egress, termina sus procesos propios y elimina sus configuraciones.
+No requiere administrador ni cambia rutas, DNS, proxy, firewall o adaptadores.
 
-En la primera PoC se demostrará únicamente la cadena Xray → forwarding local →
-wstunnel → relay → 1VPN. wstunnel es transporte y no sustituye VLESS/Reality.
+## Reproducir
 
-## Auditoría
-
-```powershell
-.\scripts\audit-env.ps1
+~~~powershell
+.\scripts\fetch-runtime.ps1
 .\scripts\verify-runtime.ps1
-```
+pwsh -NoProfile -File .\scripts\smoke-test.ps1
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\smoke-test.ps1
+pwsh -NoProfile -File .\tests\test-poc-config.ps1
+pwsh -NoProfile -File .\tests\test-https-probe.ps1
+pwsh -NoProfile -File .\scripts\test-m1-transport-poc.ps1
+~~~
 
-Las referencias de 1VPN son copias locales de código para estudio y no se
-modifican. La ubicación exacta y sus limitaciones de procedencia están en
-[`docs/upstream-baseline.md`](docs/upstream-baseline.md).
-
-## Roadmap
-
-1. **M0** — Bootstrap, auditoría y arquitectura base (completado).
-2. **M0.2** — Pinning de runtimes, versiones oficiales y SHA256 (actual).
-3. **PoC de red** — Xray, forwarding local, wstunnel y relay restringido.
-4. **Cliente Windows** — Tauri, Wintun, tun2socks, rutas, DNS, rollback y
-   diagnóstico.
-5. **Distribución** — ejecutable autónomo x86_64 con runtimes verificados.
-
-No se debe interpretar este repositorio como un cliente VPN operativo hasta que
-los hitos posteriores estén certificados.
+Las referencias de interoperabilidad permanecen bajo reference/, sin cambios.
+Su procedencia y limitaciones están en [upstream baseline](docs/upstream-baseline.md).
+app/ y src-tauri/ son placeholders; Tauri todavía no está inicializado.
