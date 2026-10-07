@@ -2,6 +2,7 @@
 param()
 
 $ErrorActionPreference = 'Stop'
+. (Join-Path $PSScriptRoot 'lib\NativeProcess.ps1')
 $projectRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 $binPath = Join-Path $projectRoot 'runtime\bin'
 $fixturePath = Join-Path $projectRoot 'tests\fixtures\xray\reality-validation.json'
@@ -10,9 +11,9 @@ $fixturePath = Join-Path $projectRoot 'tests\fixtures\xray\reality-validation.js
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
 function Run-Offline([string]$Name, [string]$Executable, [string[]]$Arguments) {
-    & $Executable @Arguments *> $null
-    if ($LASTEXITCODE -ne 0) {
-        Write-Output "FAIL: $Name offline probe exit code $LASTEXITCODE"
+    $result = Invoke-NativeProcess -FilePath $Executable -Arguments $Arguments
+    if ($result.ExitCode -ne 0) {
+        Write-Output "FAIL: $Name offline probe exit code $($result.ExitCode)"
         $script:failed = $true
     } else {
         Write-Output "PASS: $Name offline probe"
@@ -20,9 +21,10 @@ function Run-Offline([string]$Name, [string]$Executable, [string[]]$Arguments) {
 }
 
 function Test-HelpContains([string]$Name, [string]$Executable, [string[]]$Arguments, [string[]]$RequiredText) {
-    $helpText = (& $Executable @Arguments 2>&1 | Out-String)
-    if ($LASTEXITCODE -ne 0) {
-        Write-Output "FAIL: $Name help probe exit code $LASTEXITCODE"
+    $result = Invoke-NativeProcess -FilePath $Executable -Arguments $Arguments
+    $helpText = $result.CombinedOutput
+    if ($result.ExitCode -ne 0) {
+        Write-Output "FAIL: $Name help probe exit code $($result.ExitCode)"
         $script:failed = $true
         return
     }
