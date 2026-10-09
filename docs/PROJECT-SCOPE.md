@@ -1,38 +1,39 @@
 # Project scope
 
-## Plataforma V1
+## Platform
 
 Windows 10/11 x64 (x86_64).
 
-## Incluido en V1
+## Certified/current
 
-- 1VPN Free, Premium, 2FA y selección de locations.
-- Xray VLESS + Reality, xtls-rprx-vision y salida TCP443.
-- Wintun y tun2socks para VPN de sistema.
-- Modos DIRECT y CORPORATE_PROXY; compatibilidad externa opcional con Proxifier.
-- Gestión de rutas y DNS, protección contra fugas IPv6 y rollback.
-- Reconnect, kill switch, diagnósticos redactados y system tray.
-- Tauri desktop UI; distribución portable y con instalador.
+- M1: Xray + 1VPN Free Direct tunnel proof.
+- M2-R: Xray SOCKS plus selective application routing through manually
+  configured, external Proxifier rules; certification requires a live
+  corporate test.
+- Proxifier remains optional, user-managed, and outside OneTunnel.
 
-Es el alcance objetivo, no una lista de funcionalidades implementadas.
-Sólo el gate Xray + 1VPN Free Direct está certificado.
-Premium, 2FA, captura de sistema, protección de fugas, reconnect, kill switch,
-UI y distribución quedan por implementar y verificar.
+## Future V1 scope
 
-## Fuera de V1
+- 1VPN Free/Premium, account flows, and location selection.
+- Xray VLESS + Reality, `xtls-rprx-vision`, TCP 443.
+- Tauri desktop UI, reconnect, diagnostics, and packaging.
+- Possible native Windows capture using Wintun/tun2socks, subject to M3 —
+  Native Windows Capture Evaluation.
 
-- Infraestructura remota propia y servidor VPN OneTunnel/self-hosted.
-- Linux, macOS, mobile y ARM64.
-- Multi-provider, WebTransport y HTTP2 tunnel.
-- Extensión de navegador y split tunneling avanzado por aplicación.
+This is a roadmap, not a statement that those items are implemented. No
+Wintun/tun2socks system capture, Windows routing/DNS changes, leak protection,
+kill switch, reconnect, UI, or distribution is certified today.
 
-Las exclusiones de transporte y su justificación se declaran en
-[ADR 0001](adr/0001-v1-network-architecture.md); no son elementos activos
-del runtime ni del roadmap V1.
+## Out of scope
 
-## Límites de M1.2
+- OneTunnel-hosted VPN infrastructure.
+- Linux, macOS, mobile, and ARM64.
+- Multi-provider, WebTransport, and HTTP/2 tunnel.
+- Browser extension and advanced split tunneling.
 
-Consolida arquitectura, runtime, scripts y documentación.
-No aplica networking Windows ni automatiza Proxifier.
-reference/ no se modifica; app/ y src-tauri/ conservan sus placeholders.
-No se inicializa Tauri y no se añade UI. El siguiente hito técnico es M2.
+## M2-R boundaries
+
+M2-R does not edit Proxifier profiles or manage credentials. It does not
+change Windows routes, DNS, IPv6, firewall, or adapters and does not require
+administrator privileges. The previous Wintun/tun2socks prototype is backed
+up outside the repository and deferred to M3.

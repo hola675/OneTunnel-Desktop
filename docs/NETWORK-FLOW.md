@@ -1,60 +1,51 @@
 # Network flow
 
-Estos son los dos flujos de red objetivo V1. Wintun, rutas y DNS aún no se
-activan en M1.2; el gate ya certificado está en
-[M1 Xray Direct](milestones/M1-XRAY-DIRECT.md).
+M1 certifies the direct Xray tunnel. M2-R adds selective routing through
+user-managed Proxifier rules. Neither milestone captures all Windows traffic.
 
-## DIRECT
+## Xray Direct control
 
-~~~text
-Application
-   ↓
-Windows IP stack
-   ↓
-Wintun
-   ↓
-tun2socks
-   ↓
-Xray SOCKS
-   ↓
-VLESS + Reality
-   ↓
-1VPN:443
-   ↓
-Internet
-~~~
+```text
+Xray SOCKS client (HTTPS control)
+   ↓ SOCKS5 127.0.0.1:<port>
+Xray
+   ↓ VLESS + Reality
+1VPN:443 → Internet
+```
 
-Xray conecta directamente al servidor 1VPN seleccionado. El SOCKS interno
-escucha sólo en loopback. [WINDOWS-VPN](WINDOWS-VPN.md) define la exclusión
-física del destino 1VPN necesaria para evitar recapturar su salida.
+This control demonstrates Xray tunnel traffic. It does not certify routing by
+Proxifier or a Windows system VPN.
 
-## CORPORATE_PROXY
+## M2-R selected application
 
-~~~text
-Application
-   ↓
-Windows IP stack
-   ↓
-Wintun
-   ↓
-tun2socks
-   ↓
-Xray SOCKS
-   ↓
-Xray outbound TCP
-   ↓
-Proxifier
-   ↓
-Corporate Proxy
-   ↓
-1VPN:443
-   ↓
-Internet
-~~~
+```text
+Selected application
+   ↓ Proxifier rule: OneTunnel-Xray
+Xray SOCKS5 at 127.0.0.1:10808 (M2-R.1 certification default)
+   ↓ Xray VLESS + Reality
+Xray outbound
+   ↓ Proxifier rule: Corporate Proxy
+Corporate Proxy → 1VPN:443 → Internet
+```
 
-Proxifier actúa únicamente sobre el tráfico outbound de xray.exe.
-Loopback permanece DIRECT. OneTunnel.exe, tun2socks.exe y todas las aplicaciones
-Windows no se fuerzan al proxy mediante Proxifier.
-Xray conserva VLESS + Reality y el destino 1VPN:443; la conexión al proxy
-corporativo debe seguir usando Wi-Fi/Ethernet físico según
-[WINDOWS-VPN](WINDOWS-VPN.md).
+Expected rule order: localhost/loopback DIRECT; `xray.exe` → Corporate Proxy;
+selected test application → OneTunnel-Xray; Default → DIRECT. Proxifier rules
+are configured manually. The OneTunnel probe reports PARTIAL unless it has
+evidence of both rules; an HTTPS request through Xray SOCKS alone is not enough.
+
+## Unselected application
+
+An application outside the OneTunnel-Xray rule remains on the normal
+corporate/network path. The M2 script uses a separate PowerShell HTTPS request
+as the unselected control and hashes egress values instead of persisting full
+IP addresses.
+
+## System capture
+
+```text
+Wintun → tun2socks → Xray
+```
+
+This is deferred research for M3 — Native Windows Capture Evaluation. M2-R
+does not execute these runtimes or modify Windows routes, DNS, IPv6, firewall,
+or adapters.

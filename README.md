@@ -1,8 +1,11 @@
 # OneTunnel Desktop
 
-Cliente Windows 10/11 x64 para 1VPN con Xray VLESS + Reality.
-M1 certifica conectividad Direct mediante SOCKS local. La captura de tráfico
-del sistema y la aplicación de escritorio siguen pendientes.
+Cliente Windows 10/11 x64 para 1VPN con Xray VLESS + Reality. M1 certifica
+conectividad Direct a través del SOCKS local de Xray. M2-R valida el modelo de
+aplicación seleccionada con Proxifier externo y manual.
+
+> **M2 IS NOT A SYSTEM VPN.** No captura todo Windows ni cambia rutas, DNS,
+> IPv6, firewall o adaptadores.
 
 ## Estado
 
@@ -12,46 +15,31 @@ del sistema y la aplicación de escritorio siguen pendientes.
 | M0.2 | ✅ Runtime supply chain |
 | M0.2.1 | ✅ PowerShell cross-shell |
 | M1 | ✅ Xray + 1VPN Direct proof |
-| M1.2 | 🟡 Architecture consolidation — validación y revisión antes del commit |
-| M2 | ⏳ Windows system VPN |
+| M1.2 | ✅ Architecture consolidation (`82082c8`) |
+| M2-R | ✅ Xray + Proxifier selective tunnel; M2-R.1 live rule certification passed |
+| M3 | ⏳ Native Windows Capture Evaluation (not started) |
 
-## Arquitectura V1
+## M2-R flow
 
-~~~text
-Windows applications
-  ↓
-Wintun
-  ↓
-tun2socks
-  ↓
-Xray
+```text
+Selected application
+  ↓ Proxifier: OneTunnel-Xray
+Xray SOCKS5 127.0.0.1:10808 (M2-R.1 default; must be free)
   ↓ VLESS + Reality
-1VPN
-  ↓
-Internet
-~~~
+Xray outbound
+  ↓ Proxifier: Corporate Proxy
+1VPN:443 → Internet
+```
 
-Compatibilidad CORPORATE_PROXY:
+Proxifier stays external and user-managed. Expected rules in order: localhost
+and loopback DIRECT; `xray.exe` → Corporate Proxy; selected application →
+OneTunnel-Xray; Default → DIRECT. OneTunnel does not edit Proxifier, manage
+credentials, or start/stop it. M2 does not use Wintun/tun2socks; system capture
+is deferred to M3 evaluation. See [M2-R milestone](docs/milestones/M2-PROXIFIER-TUNNEL.md).
 
-~~~text
-Xray.exe
-  ↓
-Proxifier
-  ↓
-Corporate Proxy
-  ↓
-1VPN
-~~~
+## Validate
 
-Proxifier es opcional, externo y administrado por el usuario. Sus reglas
-aplican únicamente al tráfico outbound de xray.exe; OneTunnel no lo instala,
-configura ni guarda credenciales corporativas en V1.
-La decisión está en [ADR 0001](docs/adr/0001-v1-network-architecture.md).
-
-## Validar
-
-~~~powershell
-.\scripts\fetch-runtime.ps1
+```powershell
 .\scripts\verify-runtime.ps1
 pwsh -NoProfile -File .\scripts\smoke-test.ps1
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\smoke-test.ps1
@@ -61,30 +49,27 @@ pwsh -NoProfile -File .\tests\test-https-probe.ps1
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tests\test-https-probe.ps1
 pwsh -NoProfile -File .\tests\test-xray-config.ps1
 pwsh -NoProfile -File .\scripts\test-1vpn-direct.ps1
-~~~
+pwsh -NoProfile -File .\scripts\test-m2-proxifier-tunnel.ps1 -SocksPort 10808 -ProxifierLogPath 'C:\Logs\Proxifier.log'
+```
 
-El smoke funciona offline en PowerShell 7 y Windows PowerShell 5.1.
-El Direct probe requiere PowerShell 7 e Internet, sólo usa datos Free públicos
-y no necesita administrador. Su éxito confirma HTTPS; el resumen registra
-por separado el cambio de egress. La evidencia certificada está en
-[M1 Xray Direct](docs/milestones/M1-XRAY-DIRECT.md), incluida la política
-STRICT first y el fallback exacto de revocación offline de Schannel.
+The M2-R.1 command fails if port 10808 is occupied, then pauses for the user
+to configure Proxifier and enable Verbose File Log manually before live probes.
+It does not simulate or modify Proxifier. Runtime verification checks hashes;
+Wintun and tun2socks are not run by the M2 script.
 
-## Documentación
+M1/M2 do not need administrator privileges. The Xray Direct gate requires
+PowerShell 7 and Internet, uses public Free fixture values, and applies strict
+TLS first with only the exact Schannel revocation-offline fallback.
 
-- [Scope](docs/PROJECT-SCOPE.md), [arquitectura y estados](docs/ARCHITECTURE.md),
-  [flujos](docs/NETWORK-FLOW.md).
-- [VPN Windows, rutas, DNS e IPv6](docs/WINDOWS-VPN.md),
-  [proxy corporativo](docs/CORPORATE-PROXY.md).
-- [API 1VPN](docs/API-1VPN.md), [Xray](docs/XRAY-INTEGRATION.md).
-- [Dependencias](docs/DEPENDENCIES.md),
-  [procedencia de runtimes](docs/RUNTIME-PROVENANCE.md),
-  [seguridad](docs/SECURITY-MODEL.md), [build y validación](docs/BUILD.md).
+## Documentation
 
-reference/ conserva snapshots de interoperabilidad sin modificaciones;
-[upstream baseline](docs/upstream-baseline.md) documenta sus límites de origen.
-app/ y src-tauri/ siguen como placeholders. M1.2 no inicializa Tauri ni modifica
-rutas, DNS, proxy, firewall, IPv6 o adaptadores Windows.
+- [Scope](docs/PROJECT-SCOPE.md), [architecture](docs/ARCHITECTURE.md),
+  [network flows](docs/NETWORK-FLOW.md).
+- [Corporate proxy policy](docs/CORPORATE-PROXY.md),
+  [future Windows capture evaluation](docs/WINDOWS-VPN.md).
+- [API 1VPN](docs/API-1VPN.md), [Xray](docs/XRAY-INTEGRATION.md),
+  [runtime provenance](docs/RUNTIME-PROVENANCE.md),
+  [security](docs/SECURITY-MODEL.md), [build](docs/BUILD.md).
 
-Siguiente paso: revisar y commitear M1.2; después M2 — Wintun + tun2socks +
-Xray system VPN PoC.
+The previous Wintun/tun2socks prototype remains preserved in an external
+backup; it is deferred to M3 evaluation.
