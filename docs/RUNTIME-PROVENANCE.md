@@ -3,23 +3,9 @@
 Fecha de adquisición M0.2: **2026-10-05**. Todos los artefactos proceden de
 URLs oficiales persistentes; no se usaron mirrors ni URLs firmadas temporales.
 
-## wstunnel
-
-- Project: `erebe/wstunnel`
-- Official release: `https://github.com/erebe/wstunnel/releases/tag/v11.0.0`
-- Version/tag: `11.0.0` / `v11.0.0`
-- Release date: 2026-09-19
-- Classification: immutable, non-pre-release
-- Artifact: `wstunnel_11.0.0_windows_amd64.tar.gz`
-- Artifact URL: `https://github.com/erebe/wstunnel/releases/download/v11.0.0/wstunnel_11.0.0_windows_amd64.tar.gz`
-- Checksums URL: `https://github.com/erebe/wstunnel/releases/download/v11.0.0/checksums.txt`
-- Official checksum source: release `checksums.txt` asset; its SHA256 was
-  compared with the downloaded archive.
-- Archive SHA256: `024323c9c2dd1ed1c6f38d417d9b2776e2f0083bba507e80d4a8124c8451b164`
-- Extracted runtime: `runtime/bin/wstunnel.exe`
-- Runtime SHA256: `2bc2e95072f7e0a3335dc00bb8185a419c8d1e9431f6e21cab67dde860ed13ae`
-- License: BSD-3-Clause; `runtime/licenses/wstunnel/LICENSE`
-- Verification: `fetch-runtime.ps1`, `verify-runtime.ps1`, `smoke-test.ps1`
+Runtime activo M1.2: Xray, tun2socks y Wintun, schemaVersion 3.
+Los pins existentes se conservan sin cambios. Proxifier es externo y no pertenece
+al runtime ni a esta matriz de procedencia.
 
 ## Xray-core
 

@@ -1,7 +1,6 @@
 #Requires -Version 7.0
 [CmdletBinding()]
 param(
-    [switch]$DirectOnly,
     [ValidateSet('ams', 'sgp', 'lax')][string]$Location = 'lax',
     [ValidateRange(1, 2)][int]$ServerIndex = 1
 )
@@ -18,7 +17,7 @@ $handles = [Collections.Generic.List[object]]::new()
 $stage = 'RUNTIME_VERIFICATION'
 $result = [ordered]@{
     Result = 'FAIL'; Failure = $null; Stage = $stage; ImplementedScope = 'M1_DIRECT'
-    Mode = 'Direct'
+    Mode = 'DIRECT'
     DirectContractSHA256 = (Get-FileHash -LiteralPath (Join-Path $root 'tests\fixtures\1vpn\free-contract.json') -Algorithm SHA256).Hash.ToLowerInvariant()
     DirectGate = 'FAIL'; Curl = $null; Baseline = $null; ServerAttempts = @()
     Runtime = @{ Xray = '26.9.9' }
@@ -127,7 +126,7 @@ try {
         $result.Control = $control
         try {
             $stage = 'XRAY_CONFIG_FAILURE'
-            $generated = & (Join-Path $PSScriptRoot 'new-poc-xray-config.ps1') -Location $candidate.Location -ServerIndex $candidate.Index
+            $generated = & (Join-Path $PSScriptRoot 'new-xray-config.ps1') -Location $candidate.Location -ServerIndex $candidate.Index
             $configs.Add($generated.Path)
             $validation = Invoke-NativeProcess $xray @('run', '-test', '-config', $generated.Path)
             if ($validation.ExitCode -ne 0) { throw 'XRAY_CONFIG_FAILURE' }

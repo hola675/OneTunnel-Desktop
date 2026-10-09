@@ -1,24 +1,7 @@
 {
-  "schemaVersion": 2,
+  "schemaVersion": 3,
   "platform": "windows-x86_64",
   "components": {
-    "wstunnel": {
-      "upstream": "erebe/wstunnel",
-      "version": "11.0.0",
-      "tag": "v11.0.0",
-      "architecture": "windows-amd64",
-      "artifact": "wstunnel_11.0.0_windows_amd64.tar.gz",
-      "sourceUrl": "https://github.com/erebe/wstunnel/releases/download/v11.0.0/wstunnel_11.0.0_windows_amd64.tar.gz",
-      "checksumUrl": "https://github.com/erebe/wstunnel/releases/download/v11.0.0/checksums.txt",
-      "archiveSha256": "024323c9c2dd1ed1c6f38d417d9b2776e2f0083bba507e80d4a8124c8451b164",
-      "runtimeFile": "wstunnel.exe",
-      "runtimeSha256": "2bc2e95072f7e0a3335dc00bb8185a419c8d1e9431f6e21cab67dde860ed13ae",
-      "verificationCommand": "wstunnel.exe --version; wstunnel.exe client --help",
-      "license": "BSD-3-Clause",
-      "licenseUrl": "https://raw.githubusercontent.com/erebe/wstunnel/v11.0.0/LICENSE",
-      "releaseClassification": "immutable",
-      "licenseDirectory": "runtime/licenses/wstunnel"
-    },
     "xray": {
       "upstream": "XTLS/Xray-core",
       "version": "26.9.9",

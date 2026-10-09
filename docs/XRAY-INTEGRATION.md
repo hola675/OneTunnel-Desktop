@@ -1,51 +1,51 @@
 # Xray integration
 
-La configuración conceptual se extrajo del template Android de 1VPN. El
-contrato de la primera integración es:
+## Contrato V1
 
-```text
+El template Android de 1VPN define:
+
+~~~text
 protocol: vless
-port final: 443
+destination: selected 1VPN host:443
 flow: xtls-rprx-vision
+encryption: none
 security: reality
 network: tcp
 fingerprint: chrome
-```
+~~~
 
-Los parámetros Reality del servidor 1VPN final que deben conservarse son:
+Se conservan UUID, publicKey, shortId, serverName/realityServerName,
+fingerprint y flow del servidor/provider seleccionado.
+El proceso mantiene su nombre xray.exe y el inbound interno escucha sólo en
+127.0.0.1. En ambos modos el outbound Xray conserva el destino 1VPN:443.
+CORPORATE_PROXY usa la compatibilidad externa descrita en
+[CORPORATE-PROXY](CORPORATE-PROXY.md).
 
-```text
-UUID
-publicKey
-shortId
-serverName (realityServerName)
-fingerprint
-flow
-```
+## Generador actual
 
-El template observado usa un outbound VLESS con `encryption: none`,
-`streamSettings.network: tcp`, `security: reality` y `realitySettings` con
-`fingerprint: chrome`, `serverName`, `publicKey` y `shortId`. El inbound Android
-es SOCKS local en loopback; OneTunnel debe mantener listeners internos solo en
-`127.0.0.1`.
+scripts/new-xray-config.ps1 consume un único fixture público
+tests/fixtures/1vpn/free-contract.json y admite Location (ams/sgp/lax),
+ServerIndex (1/2) y SocksPort (0 elige un puerto dinámico).
 
-## Transformación de transporte
+Produce un config Free mínimo: SOCKS5 loopback, UDP desactivado y un único
+outbound VLESS/TCP/Reality, sin DNS ni routing propios. Devuelve Path,
+SocksPort, Location, Server y RealityServerName. Las configuraciones únicas
+se escriben en %TEMP%\OneTunnel\xray\; quien las genera debe eliminarlas.
+La reserva de puerto se libera antes de arrancar Xray: el runner comprueba
+que el listener posterior pertenece a su PID y falla si el arranque colisiona.
 
-Original Android:
+tests/contracts/1vpn/test-free-contract.ps1 verifica procedencia, constantes
+Free y emparejamientos host/SNI del snapshot. tests/test-xray-config.ps1 llama
+ese contrato y valida offline las seis configuraciones con el runtime fijado.
 
-```text
-Xray → 1VPN_HOST:443
-```
+## Gate actual y evolución
 
-OneTunnel Restricted:
+scripts/test-1vpn-direct.ps1 verifica runtimes, configura y arranca Xray
+propio, prueba HTTPS por su SOCKS y compara hashes de egress; luego limpia
+procesos/configs. Su evidencia está en
+[M1 Xray Direct](milestones/M1-XRAY-DIRECT.md).
 
-```text
-Xray → 127.0.0.1:LOCAL_WSTUNNEL_PORT
-      → wstunnel → 1VPN_HOST:443
-```
-
-La única transformación inicial es el `address`/puerto de conexión de Xray
-hacia el forwarding local. Xray conserva los parámetros Reality del destino
-1VPN final; wstunnel no los interpreta.
-
-M0 no implementa el generador final de configuración ni descarga Xray.
+El generador actual es exclusivamente Free. Premium, 2FA y selección dinámica
+de provider se implementarán a partir del [contrato API](API-1VPN.md);
+no hay credenciales Premium de ejemplo. DNS, UDP y captura de sistema deberán
+validarse en M2/M3; el config Direct no certifica ausencia de fugas.

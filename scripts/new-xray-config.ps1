@@ -28,7 +28,7 @@ $config = [ordered]@{
         }
     })
 }
-$directory = Join-Path ([IO.Path]::GetTempPath()) 'OneTunnel\poc'
+$directory = Join-Path ([IO.Path]::GetTempPath()) 'OneTunnel\xray'
 [void][IO.Directory]::CreateDirectory($directory)
 $path = Join-Path $directory ('xray-direct-' + [guid]::NewGuid().ToString('N') + '.json')
 $config | ConvertTo-Json -Depth 20 | Set-Content -LiteralPath $path -Encoding utf8

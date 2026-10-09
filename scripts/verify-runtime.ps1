@@ -31,23 +31,28 @@ try {
     exit 1
 }
 
-if ($manifest.schemaVersion -ne 2) { Fail 'MANIFEST_INVALID' 'schemaVersion must be 2' }
+if ($manifest.schemaVersion -ne 3) { Fail 'MANIFEST_INVALID' 'schemaVersion must be 3' }
 if ($manifest.platform -ne 'windows-x86_64') { Fail 'WRONG_PLATFORM' 'platform must be windows-x86_64' }
 
 $expected = @{
-    wstunnel = 'erebe/wstunnel'
     xray = 'XTLS/Xray-core'
     tun2socks = 'xjasonlyu/tun2socks'
     wintun = 'Wintun'
 }
 $officialReleaseBases = @{
-    wstunnel = 'https://github.com/erebe/wstunnel/releases/download'
     xray = 'https://github.com/XTLS/Xray-core/releases/download'
     tun2socks = 'https://github.com/xjasonlyu/tun2socks/releases/download'
     wintun = 'https://www.wintun.net/builds'
 }
 
-foreach ($name in $expected.Keys) {
+$components = @('xray', 'tun2socks', 'wintun')
+$componentNames = @($manifest.components.PSObject.Properties.Name)
+if ($componentNames.Count -ne $components.Count -or @($componentNames | Where-Object { $_ -notin $components }).Count -gt 0) {
+    Fail 'MANIFEST_INVALID' 'components must be exactly xray, tun2socks and wintun'
+}
+$runtimeFiles = @{ xray = 'xray.exe'; tun2socks = 'tun2socks.exe'; wintun = 'wintun.dll' }
+
+foreach ($name in $components) {
     $component = $manifest.components.$name
     if ($null -eq $component) {
         Fail 'MANIFEST_INVALID' "missing component: $name"
@@ -72,7 +77,10 @@ foreach ($name in $expected.Keys) {
     if ($component.checksumUrl -and ([string]$component.checksumUrl -notmatch '^https://')) { Fail 'MANIFEST_INVALID' "$name checksumUrl must be HTTPS" }
     if ($component.licenseUrl -and ([string]$component.licenseUrl -notmatch '^https://raw\.githubusercontent\.com/')) { Fail 'MANIFEST_INVALID' "$name licenseUrl must use upstream raw GitHub HTTPS" }
     if (-not (Is-Sha256 $component.archiveSha256)) { Fail 'UNPINNED' "$name archiveSha256 is missing or invalid" }
-    if ([string]::IsNullOrWhiteSpace([string]$component.runtimeFile)) { Fail 'MANIFEST_INVALID' "$name runtimeFile is missing" }
+    if ($component.runtimeFile -cne $runtimeFiles[$name]) {
+        Fail 'MANIFEST_INVALID' "$name runtimeFile must be $($runtimeFiles[$name])"
+        continue
+    }
     if ([string]::IsNullOrWhiteSpace([string]$component.verificationCommand)) { Fail 'MANIFEST_INVALID' "$name verificationCommand is missing" }
     if (-not (Is-Sha256 $component.runtimeSha256)) { Fail 'UNPINNED' "$name runtimeSha256 is missing or invalid" }
     if ([string]::IsNullOrWhiteSpace([string]$component.license)) { Fail 'MANIFEST_INVALID' "$name license is missing" }

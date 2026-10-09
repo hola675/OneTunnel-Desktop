@@ -38,8 +38,6 @@ function Test-HelpContains([string]$Name, [string]$Executable, [string[]]$Argume
 }
 
 $script:failed = $false
-Run-Offline 'wstunnel version' (Join-Path $binPath 'wstunnel.exe') @('--version')
-Test-HelpContains 'wstunnel' (Join-Path $binPath 'wstunnel.exe') @('client', '--help') @('-L, --local-to-remote', 'wss://', '--http-proxy', '--tls-verify-certificate', '--http-upgrade-path-prefix', '--dns-resolver', '--dns-resolver-prefer-ipv4')
 Run-Offline 'tun2socks version' (Join-Path $binPath 'tun2socks.exe') @('--version')
 Test-HelpContains 'tun2socks' (Join-Path $binPath 'tun2socks.exe') @('--help') @('--device', '--proxy')
 Run-Offline 'xray version' (Join-Path $binPath 'xray.exe') @('version')

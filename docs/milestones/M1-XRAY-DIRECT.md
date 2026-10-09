@@ -5,6 +5,11 @@ Direct de 1VPN Free mediante Xray. La VPN del sistema queda para M2.
 
 ## Baseline
 
+Commit Direct M1: cb3f6480226f97f86438324a09f76b724175d5e3,
+test: certify direct 1vpn xray connectivity; publicado en origin/main antes
+de M1.2, con working tree limpio. M1.2 reorganiza estos archivos y conserva
+el gate certificado.
+
 M0.2.1: 48720970fcc00625b13aec84a0fd3ed4bcc4b7d4,
 test: make runtime smoke cross-shell compatible. Smoke y helper nativo
 certificados en PowerShell 7.6.2 y Windows PowerShell 5.1.19041.6456.
@@ -27,11 +32,11 @@ Sus UUID, public key y short ID son constantes públicas upstream, sin secretos
 personales ni datos Premium. Hay seis servidores: Amsterdam, Singapore y
 Los Angeles, dos por ubicación.
 
-scripts/new-poc-xray-config.ps1 genera un único inbound SOCKS5
+scripts/new-xray-config.ps1 genera un único inbound SOCKS5
 127.0.0.1:<dynamic-port>, UDP desactivado, y un único outbound VLESS/TCP/Reality
 a 1VPN:443: encryption none, xtls-rprx-vision, fingerprint chrome, public key
 y short ID Free y SNI del servidor. No añade DNS ni routing. Los archivos
-únicos se generan en %TEMP%\OneTunnel\poc\.
+únicos se generan en %TEMP%\OneTunnel\xray\.
 
 ## Evidencia certificada
 
@@ -61,6 +66,18 @@ Servidor: free-los-angeles-node-1.cloudwidecdn.com; Reality SNI:
 www.apple.com. La comparación conserva sólo SHA256 de las IPs.
 Los logs redactan IPs y constantes Free; no persisten IPs públicas completas.
 
+## Validación tras M1.2
+
+El runner renombrado test-1vpn-direct.ps1 pasó el 7 de octubre de 2026,
+sin elevación, después de migrar a schemaVersion 3.
+Evidencia: %TEMP%\OneTunnel\M1\079fa021a0b14d0aad5e987b5d1bf2a1\.
+Resultado DIRECT_CONTROL_PASS, DirectGate PASS, Reality confirmada por
+tráfico, egress distinto, cleanup PASS. STRICT dio el error exacto Schannel
+y el único retry best-effort pasó en baseline y SOCKS.
+No cambió networking Windows. El runtime activo se verificó con Xray,
+tun2socks y Wintun; Wintun y tun2socks no participan en este gate.
+El smoke offline posterior pasó en PowerShell 7 y Windows PowerShell 5.1.
+
 ## Schannel y política TLS
 
 curl 8.13.0 / Schannel reportó
@@ -85,14 +102,13 @@ timeout, HTTP, IP inválida, streams separados y flags. Corre en ambos shells.
 ## Runner y límites
 
 ~~~powershell
-pwsh -NoProfile -File .\tests\test-poc-config.ps1
+pwsh -NoProfile -File .\tests\test-xray-config.ps1
 pwsh -NoProfile -File .\tests\test-https-probe.ps1
-pwsh -NoProfile -File .\scripts\test-m1-transport-poc.ps1
+pwsh -NoProfile -File .\scripts\test-1vpn-direct.ps1
 ~~~
 
 El runner prueba únicamente Direct y devuelve DIRECT_CONTROL_PASS / exit 0
 si el gate y cleanup pasan; fallos técnicos devuelven FAIL / exit 1.
--DirectOnly se conserva como alias de compatibilidad para este hito.
 Una IP sin cambio queda como WARN_IP_UNCHANGED; requiere revisión y no
 certifica cambio de egress. La ejecución certificada sí cambió la IP.
 Se prueban hasta seis candidatos, empezando por la ubicación seleccionada.

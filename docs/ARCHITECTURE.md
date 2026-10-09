@@ -1,61 +1,42 @@
 # Architecture
 
-## Principio
+## Responsabilidades V1
 
-La aplicación Windows será autónoma y empaquetará runtimes fijados. La
-separación de responsabilidades es obligatoria:
+| Componente | Responsabilidad |
+| --- | --- |
+| Wintun | Adaptador virtual y captura del tráfico IP Windows |
+| tun2socks | Adaptación de paquetes IP a SOCKS5 |
+| Xray | SOCKS loopback → VLESS + Reality → 1VPN |
+| 1VPN | Proveedor VPN Free/Premium |
+| Proxifier | Compatibilidad corporativa externa y opcional para xray.exe |
 
-- **Wintun**: interfaz de red virtual futura.
-- **tun2socks**: futura conversión de tráfico de la interfaz a SOCKS.
-- **Xray**: SOCKS local y protocolo VLESS + Reality hacia el servidor 1VPN.
-- **wstunnel**: solo transporte TCP sobre WSS/TLS hacia un relay restringido.
-- **relay**: forwarding controlado hacia el host 1VPN final, nunca proxy abierto.
+El supervisor futuro gestionará runtimes verificados, provider, selección de
+servidor, adaptador, rutas, DNS, verificación, rollback y reconexión.
+El nombre xray.exe debe conservarse para las reglas externas de aplicación.
 
-La arquitectura congelada es:
+La arquitectura aceptada está en [ADR 0001](adr/0001-v1-network-architecture.md).
+[NETWORK-FLOW](NETWORK-FLOW.md) define exactamente los dos modos DIRECT y
+CORPORATE_PROXY. [WINDOWS-VPN](WINDOWS-VPN.md) es el contrato principal de
+networking y [CORPORATE-PROXY](CORPORATE-PROXY.md) el de compatibilidad externa.
 
-```text
-Windows Applications
-        │
-     Wintun
-        │
-   tun2socks
-        │
-   Xray SOCKS
-        │
- Xray VLESS/Reality
-        │
-127.0.0.1:<dynamic-port>
-        │
- wstunnel client
-        │ WSS/TLS TCP/443
- wstunnel relay
-        │
- 1VPN server:443
-        │
- Internet
-```
+## Máquina de estados objetivo
 
-En Restricted Mode Xray conserva VLESS, Reality y XTLS Vision, pero conecta a
-un puerto local de forwarding; wstunnel realiza el transporte exterior.
-
-## Máquina de estados
-
-```text
+~~~text
 DISCONNECTED
     ↓
 PREPARING
     ↓
-RESOLVING_RELAY
+LOADING_PROVIDER
     ↓
-STARTING_WSTUNNEL
-    ↓
-WSTUNNEL_READY
+SELECTING_SERVER
     ↓
 STARTING_XRAY
     ↓
 XRAY_READY
     ↓
-STARTING_TUN
+CREATING_TUN
+    ↓
+STARTING_TUN2SOCKS
     ↓
 CONFIGURING_ROUTES
     ↓
@@ -64,9 +45,32 @@ CONFIGURING_DNS
 VERIFYING
     ↓
 CONNECTED
-```
+~~~
 
-En cualquier fallo: `ERROR → ROLLBACK → DISCONNECTED`.
+CORPORATE_PROXY inserta CHECKING_CORPORATE_PROXY después de SELECTING_SERVER
+y antes de STARTING_XRAY. Es una futura comprobación de compatibilidad y
+accesibilidad; la configuración y gestión de Proxifier permanecen externas.
 
-Cada acción que modifique Windows debe tener una acción inversa conocida. M0
-solo documenta este contrato; no ejecuta ninguna acción de red.
+En fallo: ERROR → ROLLBACK → DISCONNECTED. La desconexión solicitada también
+debe ejecutar rollback. CONNECTED requiere tráfico verificado y política de
+fugas satisfecha, no sólo procesos activos o listeners abiertos.
+
+## Rollback obligatorio
+
+Every Windows networking mutation must have a known inverse operation.
+
+Antes de mutar se guarda el estado y se registra qué acciones efectivamente
+tuvieron éxito. La recuperación debe ser idempotente y cubrir:
+
+1. Restaurar DNS.
+2. Restaurar rutas propias y configuración IPv6 modificada.
+3. Parar tun2socks por su proceso propio.
+4. Cerrar/eliminar Wintun propio.
+5. Parar Xray por su proceso propio.
+6. Restaurar el estado anterior restante y verificarlo.
+
+La protección contra fugas debe mantenerse hasta completar la restauración.
+No se deben tocar procesos, rutas o adaptadores ajenos.
+
+Esta máquina y el rollback de sistema son diseño para M2/M3. M1/M1.2 sólo
+ejecutan el gate Direct con cleanup de procesos y configs temporales.

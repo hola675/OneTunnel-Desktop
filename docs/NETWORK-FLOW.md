@@ -1,39 +1,60 @@
 # Network flow
 
-## Restricted Mode — principal
+Estos son los dos flujos de red objetivo V1. Wintun, rutas y DNS aún no se
+activan en M1.2; el gate ya certificado está en
+[M1 Xray Direct](milestones/M1-XRAY-DIRECT.md).
 
-```text
+## DIRECT
+
+~~~text
 Application
-    ↓
-Xray SOCKS / VLESS + Reality
-    ↓
-127.0.0.1:<wstunnel-local-port>
-    ↓
-wstunnel client
-    ↓ WSS/TLS over TCP/443
-wstunnel relay
-    ↓
-1VPN server:443
-    ↓
+   ↓
+Windows IP stack
+   ↓
+Wintun
+   ↓
+tun2socks
+   ↓
+Xray SOCKS
+   ↓
+VLESS + Reality
+   ↓
+1VPN:443
+   ↓
 Internet
-```
+~~~
 
-El destino exterior visible desde el cliente para el transporte debe ser
-únicamente el relay wstunnel por TCP/443. Xray no debe conectarse directamente
-al servidor 1VPN cuando Restricted Mode está activo. wstunnel no interpreta ni
-termina VLESS, Reality o XTLS Vision: solo reenvía TCP.
+Xray conecta directamente al servidor 1VPN seleccionado. El SOCKS interno
+escucha sólo en loopback. [WINDOWS-VPN](WINDOWS-VPN.md) define la exclusión
+física del destino 1VPN necesaria para evitar recapturar su salida.
 
-La primera PoC probará esta cadena sin Wintun ni tun2socks. El listener local
-debe enlazar exclusivamente en `127.0.0.1` y usar un puerto dinámico reservado
-por el supervisor.
+## CORPORATE_PROXY
 
-## Direct Mode — futuro/fallback
+~~~text
+Application
+   ↓
+Windows IP stack
+   ↓
+Wintun
+   ↓
+tun2socks
+   ↓
+Xray SOCKS
+   ↓
+Xray outbound TCP
+   ↓
+Proxifier
+   ↓
+Corporate Proxy
+   ↓
+1VPN:443
+   ↓
+Internet
+~~~
 
-```text
-Xray
-    ↓
-1VPN server:443
-```
-
-Direct Mode queda documentado como fallback futuro. No es la prioridad de M0 y
-no habilita ningún comportamiento operativo en esta fase.
+Proxifier actúa únicamente sobre el tráfico outbound de xray.exe.
+Loopback permanece DIRECT. OneTunnel.exe, tun2socks.exe y todas las aplicaciones
+Windows no se fuerzan al proxy mediante Proxifier.
+Xray conserva VLESS + Reality y el destino 1VPN:443; la conexión al proxy
+corporativo debe seguir usando Wi-Fi/Ethernet físico según
+[WINDOWS-VPN](WINDOWS-VPN.md).

@@ -7,7 +7,6 @@ $manifestPath = Join-Path $projectRoot 'runtime\manifest.json'
 $downloadsPath = Join-Path $projectRoot 'runtime\downloads'
 $binPath = Join-Path $projectRoot 'runtime\bin'
 $officialReleaseBases = @{
-    wstunnel = 'https://github.com/erebe/wstunnel/releases/download'
     xray = 'https://github.com/XTLS/Xray-core/releases/download'
     tun2socks = 'https://github.com/xjasonlyu/tun2socks/releases/download'
     wintun = 'https://www.wintun.net/builds'
@@ -69,16 +68,24 @@ function Confirm-ChecksumManifest([object]$Component, [string]$ArchivePath) {
 
 if (-not (Test-Path -LiteralPath $manifestPath -PathType Leaf)) { throw "Manifest missing: $manifestPath" }
 $manifest = Get-Content -LiteralPath $manifestPath -Raw | ConvertFrom-Json
-if ($manifest.schemaVersion -ne 2) { throw 'fetch-runtime requires manifest schemaVersion 2' }
+if ($manifest.schemaVersion -ne 3) { throw 'fetch-runtime requires manifest schemaVersion 3' }
 
 New-Item -ItemType Directory -Force -Path $downloadsPath, $binPath | Out-Null
-$components = @('wstunnel', 'xray', 'tun2socks', 'wintun')
-$changed = $false
+$components = @('xray', 'tun2socks', 'wintun')
+if ($manifest.platform -ne 'windows-x86_64') { throw 'platform must be windows-x86_64' }
+$componentNames = @($manifest.components.PSObject.Properties.Name)
+if ($componentNames.Count -ne $components.Count -or @($componentNames | Where-Object { $_ -notin $components }).Count -gt 0) {
+    throw 'manifest must contain exactly xray, tun2socks and wintun'
+}
+$runtimeFiles = @{ xray = 'xray.exe'; tun2socks = 'tun2socks.exe'; wintun = 'wintun.dll' }
 
 foreach ($name in $components) {
     $component = $manifest.components.$name
     if ($null -eq $component) { throw "Missing component in manifest: $name" }
     if ([string]::IsNullOrWhiteSpace([string]$component.artifact)) { throw "$name is not pinned; artifact is missing" }
+    if ($component.runtimeFile -cne $runtimeFiles[$name]) { throw "$name runtimeFile must be $($runtimeFiles[$name])" }
+    if ([string]$component.runtimeSha256 -notmatch '^[A-Fa-f0-9]{64}$') { throw "$name runtimeSha256 is not pinned" }
+    $expectedRuntimeHash = ([string]$component.runtimeSha256).ToLowerInvariant()
     if ($name -eq 'wintun') {
         $expectedSource = "$($officialReleaseBases[$name])/$($component.artifact)"
     } else {
@@ -127,7 +134,9 @@ foreach ($name in $components) {
     Report 'PASS' "$name archive SHA256 verified"
     Confirm-ChecksumManifest $component $archivePath
 
-    $extractRoot = Join-Path ([IO.Path]::GetTempPath()) ("onetunnel-runtime-{0}-{1}" -f $name, [Guid]::NewGuid().ToString('N'))
+    $tempBase = [IO.Path]::GetFullPath([IO.Path]::GetTempPath())
+    $extractRoot = [IO.Path]::GetFullPath((Join-Path $tempBase ("onetunnel-runtime-{0}-{1}" -f $name, [Guid]::NewGuid().ToString('N'))))
+    if (-not $extractRoot.StartsWith($tempBase, [StringComparison]::OrdinalIgnoreCase)) { throw 'Extraction path must stay within TEMP' }
     New-Item -ItemType Directory -Force -Path $extractRoot | Out-Null
     try {
         if ($archivePath -match '\.tar\.gz$') {
@@ -146,19 +155,14 @@ foreach ($name in $components) {
             $archiveRuntimeFile = if ($component.extractFile) { [string]$component.extractFile } else { [string]$component.runtimeFile }
             Find-ExtractedFile $extractRoot $archiveRuntimeFile
         }
+        $runtimeHash = (Get-FileHash -LiteralPath $sourceFile -Algorithm SHA256).Hash.ToLowerInvariant()
+        if ($runtimeHash -ne $expectedRuntimeHash) { throw "$name extracted runtime SHA256 differs from manifest" }
         Copy-Item -LiteralPath $sourceFile -Destination $runtimePath -Force
-        $runtimeHash = (Get-FileHash -LiteralPath $runtimePath -Algorithm SHA256).Hash.ToLowerInvariant()
-        $component.runtimeSha256 = $runtimeHash
         Copy-LicenseFiles $extractRoot (Join-Path $projectRoot $component.licenseDirectory) ([string]$component.licenseUrl)
-        $changed = $true
         Report 'PASS' "$name runtime extracted with SHA256 $runtimeHash"
     } finally {
         if (Test-Path -LiteralPath $extractRoot) { Remove-Item -LiteralPath $extractRoot -Recurse -Force }
     }
 }
 
-if ($changed) {
-    $manifest | ConvertTo-Json -Depth 10 | Set-Content -LiteralPath $manifestPath -Encoding utf8
-    Report 'PASS' 'manifest runtimeSha256 values updated'
-}
 exit 0
