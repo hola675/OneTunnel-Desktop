@@ -1,0 +1,40 @@
+# Frontend
+node_modules/
+dist/
+
+# Rust / Tauri generated output
+/src-tauri/target/
+/src-tauri/gen/
+
+# Environment files (allow non-secret templates)
+.env
+.env.*
+!.env.example
+!.env.template
+
+# Logs and generated binaries
+*.log
+*.exe
+*.msi
+*.nsis.zip
+
+# Local credentials and temporary configuration
+*.pem
+*.key
+*.p12
+*.pfx
+*.secret
+*.tmp
+*.temp
+
+# Local agent/editor state
+.serena/cache/
+.codex/
+.agents/
+.claude/
+.cursor/
+.vscode/*.local.json
+
+# OS noise
+Thumbs.db
+Desktop.ini
