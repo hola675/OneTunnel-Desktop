@@ -8,6 +8,7 @@ OneTunnel Desktop is a Windows desktop client foundation for a future 1VPN Free 
 - Initial disconnected screen; Connect stays disabled.
 - A minimal Rust `get_app_info` command reports the app name, version, platform, and uninitialized core state.
 - No VPN connection, account integration, Xray process, SOCKS listener, or Windows network changes are implemented.
+- The native Windows build is not certified yet: the Rust toolchain download was blocked by DNS, and MSVC Build Tools are absent.
 
 The SOCKS address shown in the UI (`127.0.0.1:10808`) is the planned default only; no listener is active in F0. Rust will own connection state. Proxifier remains an external, user-managed application and OneTunnel will not alter its configuration.
 

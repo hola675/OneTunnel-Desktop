@@ -47,8 +47,13 @@ Observed in the development environment:
 - Git 2.54.0.windows.1
 - Node.js v24.21.0; npm 11.19.0
 - PowerShell 7.6.2
-- Rust, Cargo, and rustup commands were not available on PATH
-- `cl.exe`, `link.exe`, and `msbuild.exe` were not found; no Visual Studio installation or Windows SDK include directory was detected
-- WebView2 application files were present under `C:\Program Files (x86)\Microsoft\EdgeWebView\Application\154.0.4258.62`
+- Rustup metadata exists under `C:\Users\Admin\.rustup`, but the `stable-x86_64-pc-windows-msvc` toolchain directory is incomplete. Rustup reports `missing manifest in toolchain` and cannot report a compiler version.
+- The official Rustup installer was downloaded from `static.rust-lang.org`; its SHA-256 matched the checksum at the same official distribution endpoint. Rustup could not sync the MSVC stable channel: the first attempt failed DNS resolution while fetching `channel-rust-stable.toml.sha256` (socket error 11002), and a retry failed to connect (socket error 10049). TLS validation was not changed.
+- `cl.exe`, `link.exe`, `msbuild.exe`, `vswhere.exe`, and the Windows SDK include directory were not found. The `C:\Program Files (x86)\Microsoft Visual Studio\2022` directory exists but contains no detected installation. The current Windows token is not elevated (`IsAdministrator=False`). The official Build Tools bootstrapper download from `aka.ms/vs/17/release/vs_BuildTools.exe` stalled and was stopped before execution; no installation or elevation was attempted.
+- WebView2 is registered under `HKLM\SOFTWARE\WOW6432Node\Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}` as version `154.0.4258.62`.
+- `npm ci` completed and `npm run build` passed. npm reported that the local policy has not approved esbuild's install script; no approval setting was changed.
+- `cargo check --manifest-path .\\src-tauri\\Cargo.toml --locked`, `cargo test --manifest-path .\\src-tauri\\Cargo.toml --locked`, `cargo fmt --manifest-path .\\src-tauri\\Cargo.toml --all -- --check`, and `npm run tauri dev` could not run because the toolchain lacks its manifest. No Cargo.lock was generated.
+- Tauri did not open a native window; React-in-WebView, IPC `get_app_info`, window close behavior, and absence of IPC errors remain unverified. The Connect button remains disabled in the frontend build. No Xray process or Windows networking operation was started.
+- Working tree baseline before F0.1 work was `3fceb90741d9b16fb811ffd93c9a69349a2bfacc`; the only existing untracked files were `.serena/project.local.yml` and `.serena/project.yml`. No commit or push was made for F0.1.
 
-Missing native build tools were documented without attempting administrative installation or system changes.
+Native certification remains partial until Rustup can reach its official distribution endpoint and Microsoft C++ Build Tools with an x64 Windows SDK are installed. No administrative elevation, Proxifier changes, or network configuration changes were attempted.
