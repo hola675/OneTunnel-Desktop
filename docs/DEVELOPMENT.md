@@ -146,3 +146,33 @@ This continuation records the current machine state and supersedes only the earl
 ### Current outcome
 
 F0.2 is **PARTIAL**, not PASS. Connectivity and the native toolchain are recovered, but the documented native certification sequence is incomplete because the project lacks the required Windows icon resource. The requested baseline HEAD was `3fceb90741d9b16fb811ffd93c9a69349a2bfacc`; the actual HEAD at this session start and end is `3843af87ae43ef898b5be751129037543c1ddb06`. Existing local documentation edits, `.kilo/` files, `src-tauri/Cargo.toml` edits, and the untracked lockfile were preserved; no unrelated untracked files were removed.
+
+## F0.3 icon resource and native certification (2026-10-14)
+
+### Icon resource
+
+- Created a neutral, non-branded 1024×1024 SVG at `src-tauri/icons/placeholder.svg` and ran the official local CLI: `npm run tauri icon .\src-tauri\icons\placeholder.svg`.
+- The generator succeeded and produced `src-tauri/icons/icon.ico` (11,152 bytes) plus Tauri PNGs including `32x32.png`, `64x64.png`, `128x128.png`, `128x128@2x.png`, and `icon.png`. The CLI also produced its standard platform icon outputs. No temporary generator files were found.
+- The placeholder is technical only; replace it with approved OneTunnel artwork before public distribution.
+
+### Build and test results
+
+- `cargo check --manifest-path .\src-tauri\Cargo.toml --locked`: PASS.
+- `cargo test --manifest-path .\src-tauri\Cargo.toml --locked`: PASS (0 unit tests and 0 doc tests are defined; all test targets built and exited successfully).
+- `cargo fmt --manifest-path .\src-tauri\Cargo.toml --all -- --check`: PASS.
+- `npm run build`: PASS.
+- The locked Tauri graph needed a technically demonstrated compatibility alignment: with `tauri 2.11.1`, locked runtime 2.12.1 and newer macro/codegen crates failed compilation. Lockfile-only changes aligned `tauri-runtime` and `tauri-runtime-wry` to 2.11.1, and `tauri-macros` / `tauri-codegen` to 2.6.1. The subsequent locked check and test passed. `Cargo.toml` and `package-lock.json` were not changed for this alignment.
+
+### Native window, React, IPC, and shutdown
+
+- `npm run tauri dev` launched the real Windows executable `target\debug\onetunnel-desktop.exe`; Windows UI Automation identified a native top-level window named `OneTunnel Desktop` and its WebView content. This is the recorded native-window evidence; the Integrated Browser also displayed the frontend, but its screenshot is not represented as a native-window screenshot.
+- The native window’s accessibility tree confirmed `DISCONNECTED`, the `Connect` button with `enabled=False`, and footer values returned by Rust: `OneTunnel`, version `0.1.0`, platform `windows`, core status `not_initialized`. This verifies that React rendered and `get_app_info` returned through Tauri IPC.
+- No runtime/IPC error appeared in the Tauri dev output during this run. The application’s native window was closed, but the `onetunnel-desktop.exe` process and Vite listener remained active afterward. The managed dev process was then stopped to ensure no process or port-5173 listener remained; the runner reported that `beforeDevCommand` terminated non-zero during that forced cleanup. Therefore clean process shutdown is **not certified**.
+
+### Reproducibility and repository state
+
+- `src-tauri/Cargo.lock` and `package-lock.json` both exist. `package-lock.json` remains unchanged.
+- The user-provided expected HEAD was `3843af87ae43ef898b5be751129037543c1ddb06`; the current repository was already at `5858f2cdc3aa5b52af73f95d1307992f4823208f` (`docs: document toolchain recovery and native build blocker`) before F0.3 edits. No reset or checkout was performed.
+- No React component, layout, connection engine, service, or Windows networking configuration was changed. `.kilo/`, `.serena/`, and other pre-existing user files were preserved. No commit or push was made.
+
+F0.3 is **PARTIAL**, not PASS: build, tests, formatting, React rendering, native window, disabled Connect state, and Rust IPC response are verified; clean termination of the development runner after closing the native window remains unverified. No F1 work was started.

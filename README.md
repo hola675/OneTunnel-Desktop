@@ -8,7 +8,7 @@ OneTunnel Desktop is a Windows desktop client foundation for a future 1VPN Free 
 - Initial disconnected screen; Connect stays disabled.
 - A minimal Rust `get_app_info` command reports the app name, version, platform, and uninitialized core state.
 - No VPN connection, account integration, Xray process, SOCKS listener, or Windows network changes are implemented.
-- The stable Rust MSVC toolchain, Visual Studio 2022 Build Tools, Windows SDK, and `Cargo.lock` are present. Native certification remains partial: Cargo build/test and Tauri startup stop because `src-tauri/icons/icon.ico` is missing. See [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) for the exact results.
+- The stable Rust MSVC toolchain, Visual Studio 2022 Build Tools, Windows SDK, and `Cargo.lock` are present. A neutral provisional Tauri icon now allows `cargo check` and `cargo test` to pass; a real native window and `get_app_info` IPC response were verified. F0.3 remains partial because the development runner did not exit cleanly after closing the app window. Replace the placeholder icon before public distribution. See [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) for the exact results.
 
 The SOCKS address shown in the UI (`127.0.0.1:10808`) is the planned default only; no listener is active in F0. Rust will own connection state. Proxifier remains an external, user-managed application and OneTunnel will not alter its configuration.
 
