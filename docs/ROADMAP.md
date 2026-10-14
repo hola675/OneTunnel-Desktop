@@ -3,7 +3,8 @@
 | Phase | Scope |
 | --- | --- |
 | F0 | Foundation — Tauri, React/Vite, minimal IPC, disconnected UI, and documentation. |
-| F0.1 | Windows toolchain and native certification — pending Rust/MSVC installation and native Tauri/IPC verification. |
+| F0.1 | Windows toolchain and native certification — toolchain prerequisites are present; native build and Tauri/IPC verification remain pending. |
+| F0.2 | Toolchain recovery — connectivity, Rust MSVC, Visual Studio Build Tools, and Windows SDK verified; native certification is blocked by missing `src-tauri/icons/icon.ico`. |
 | F1 | Xray SOCKS Engine. |
 | F2 | 1VPN Free Connection. |
 | F3 | 1VPN Premium API. |
