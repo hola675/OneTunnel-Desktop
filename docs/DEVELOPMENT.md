@@ -176,3 +176,41 @@ F0.2 is **PARTIAL**, not PASS. Connectivity and the native toolchain are recover
 - No React component, layout, connection engine, service, or Windows networking configuration was changed. `.kilo/`, `.serena/`, and other pre-existing user files were preserved. No commit or push was made.
 
 F0.3 is **PARTIAL**, not PASS: build, tests, formatting, React rendering, native window, disabled Connect state, and Rust IPC response are verified; clean termination of the development runner after closing the native window remains unverified. No F1 work was started.
+
+## F0.4 lifecycle and shutdown certification (2026-10-14)
+
+### Initial state and lifecycle inspection
+
+- `git status --short` was empty before this task. The requested incoming HEAD was `5858f2cdc3aa5b52af73f95d1307992f4823208f`, but the actual repository was already at `8a2ab4dc72303a2073654a9dea679c205bca5b20` (`docs: document F0.3 native certification and provisional icon`, tracking `origin/main`). No reset, checkout, clean, commit, or push was performed.
+- Lifecycle entry points: `src-tauri/src/main.rs` calls `onetunnel_desktop_lib::run()`; `src-tauri/src/lib.rs` builds one default Tauri window, registers `get_app_info`, and calls `.run(generate_context!())`. No close-prevention handler or custom process-exit code exists. React invokes `get_app_info` in `src/App.tsx` and renders the result in the footer. `package.json` exposes `tauri: tauri`; `tauri.conf.json` starts `npm run dev` as `beforeDevCommand`, with Vite at `localhost:5173`.
+- No lifecycle/config/source changes were made. `Cargo.lock` and `package-lock.json` were preserved. The CLI is `@tauri-apps/cli 2.11.4`; Vite is 7.3.6.
+
+### Test A — foreground terminal `tauri dev`
+
+- Ran `npm run tauri dev` in a foreground PowerShell command under the VS 2022 x64 developer environment, not through `background_process`. The command remained active while the app was observed and returned `TAURI_DEV_EXIT=0` after the native window close request.
+- Windows process inspection captured the Tauri CLI (`node .../@tauri-apps/cli/tauri.js dev`), its cargo-run children, `onetunnel-desktop.exe`, `beforeDevCommand`/npm/Vite processes, and the TCP listener owner. One complete captured chain included Tauri CLI PID 13196 (parent `cmd.exe` PID 12876), cargo PID 6844, nested cargo PID 2696, native app PID 17416 (parent 2696), and Vite PID 15972 (parent `cmd.exe` 2136); Vite owned port 5173. A repeated UI-verification run independently captured native PID 4952, CLI PID 5348, Vite PID 6936, and port 5173 owned by PID 6936.
+- The native window was identified as `OneTunnel Desktop`. Windows UI Automation showed `DISCONNECTED`, `Connect` disabled, and the Rust response fields `OneTunnel`, `0.1.0`, `windows`, `not_initialized`; this confirms the rendered React screen and `get_app_info` IPC response.
+- Closed the native top-level window with the Windows UI Automation `WindowPattern.Close` action (normal window close request; no process termination API). The native PID, Tauri CLI, Vite PID, and listener all disappeared naturally. The foreground CLI returned exit code 0 with no shutdown error. No OneTunnel-owned Vite listener remained on 5173.
+- The shell/tool session had no native-desktop screenshot facility; the recorded native-window evidence is the Windows UI Automation window/control tree and process/listener data. No browser screenshot is claimed as a native-window screenshot.
+
+### Test B — standalone Release executable
+
+- `npm run tauri build -- --no-bundle`: PASS. Release executable: `src-tauri/target/release/onetunnel-desktop.exe`. No installer was generated. The build emitted only the existing `STATIC_VCRUNTIME` deprecation warning; no config change was made.
+- Launched the executable directly three times. Runs 1–3 used distinct PIDs 11256, 12632, and 18304. Each rendered the native window, exposed `DISCONNECTED`, disabled `Connect`, and returned version `0.1.0` / platform `windows` via `get_app_info`.
+- Each window was closed through the normal Windows UI Automation close action. Each corresponding process PID terminated within the wait window; there was no Vite listener in these standalone runs. Result: 3/3 natural app-process exits.
+
+### Root cause and disposition
+
+- Classification: **CASE C — automated process runner/termination**, not an application lifecycle defect. In F0.3, the managed background-process runner was explicitly stopped; that interrupted `beforeDevCommand` and reported a non-zero status. In the foreground terminal, closing the native window allowed Tauri CLI normal cleanup, CLI exit 0, Vite exit, and port release. The independent Release executable also exited normally in all three runs.
+- This matches the failure mode described by upstream Tauri issue [#15930](https://github.com/tauri-apps/tauri/issues/15930): on Windows, forcibly terminating the CLI can bypass its cleanup path for `beforeDevCommand`. The normal foreground-close path in this project did not reproduce an orphan. The prior F0.3 non-zero result belongs to the managed runner stop, not OneTunnel code.
+- No correction was justified. No Rust close handler, `std::process::exit`, dependency update, or runner workaround was added. Do not use forced runner termination as lifecycle certification evidence.
+
+### Regression and final state
+
+- `cargo check --manifest-path .\\src-tauri\\Cargo.toml --locked`: PASS.
+- `cargo test --manifest-path .\\src-tauri\\Cargo.toml --locked`: PASS (all targets succeeded; 0 unit/doc tests are defined).
+- `cargo fmt --manifest-path .\\src-tauri\\Cargo.toml --all -- --check`: PASS.
+- `npm run build`: PASS.
+- `git diff --check`: PASS after this documentation update.
+- No changes to Rust or React source, `Cargo.toml`, `Cargo.lock`, `package.json`, or `package-lock.json` in F0.4. The only F0.4 files changed are this development record, `README.md`, and `docs/ROADMAP.md`.
+- F0 is **PASS / certified**. The provisional icon remains marked for replacement before public distribution. No F1 implementation was started; the F0 gate is technically satisfied for a later, separately authorized F1 task.
