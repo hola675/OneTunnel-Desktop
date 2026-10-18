@@ -15,6 +15,11 @@ pub fn get_app_info() -> AppInfo {
         app_name: "OneTunnel",
         version: env!("CARGO_PKG_VERSION"),
         platform: "windows",
-        core_status: "not_initialized",
+        core_status: "runtime_preflight",
     }
+}
+
+#[tauri::command]
+pub fn inspect_xray_runtime() -> crate::xray::RuntimeCheck {
+    crate::xray::inspect_runtime()
 }
