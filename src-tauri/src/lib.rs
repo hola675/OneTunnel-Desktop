@@ -2,6 +2,7 @@ mod commands;
 mod config;
 mod engine;
 mod health;
+mod integrity;
 mod xray;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
