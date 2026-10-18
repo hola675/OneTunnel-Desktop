@@ -26,6 +26,7 @@ pub struct EngineStatus {
     pub phase: EnginePhase,
     pub pid: Option<u32>,
     pub socks_address: String,
+    pub socks_ready: bool,
     pub message: String,
 }
 
@@ -59,6 +60,7 @@ impl Engine {
             phase: inner.phase.clone(),
             pid: inner.child.as_ref().map(Child::id),
             socks_address: format!("{SOCKS_HOST}:{DEFAULT_SOCKS_PORT}"),
+            socks_ready: inner.child.is_some() && crate::health::socks5_ready(DEFAULT_SOCKS_PORT).is_ok(),
             message: inner.message.clone(),
         }
     }
