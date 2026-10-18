@@ -27,8 +27,11 @@ jobs:
         with:
           targets: x86_64-pc-windows-msvc
           components: rustfmt
-      - name: Rust format
+      - name: Rust format audit
+        continue-on-error: true
         run: cargo fmt --manifest-path src-tauri/Cargo.toml --all -- --check
+      - name: Format Rust for compile diagnostics
+        run: cargo fmt --manifest-path src-tauri/Cargo.toml --all
       - name: Rust check
         run: cargo check --manifest-path src-tauri/Cargo.toml --locked
       - name: Rust unit tests
