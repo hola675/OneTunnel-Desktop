@@ -41,7 +41,14 @@ export default function App() {
       .then(setAppInfo)
       .catch(() => setError('Native application information is unavailable.'))
     checkRuntime()
-    invoke<EngineStatus>('get_engine_status').then(setEngine).catch(() => setError('Engine status unavailable.'))
+    const refresh = () => {
+      invoke<EngineStatus>('get_engine_status')
+        .then(setEngine)
+        .catch(() => setError('Engine status unavailable.'))
+    }
+    refresh()
+    const interval = window.setInterval(refresh, 2500)
+    return () => window.clearInterval(interval)
   }, [])
 
   return (
