@@ -4,7 +4,7 @@ on:
   pull_request:
     branches: [main]
   push:
-    branches: [main, feat/f1-xray-foundation]
+    branches: [main, feat/f1-xray-foundation, feat/f6-traffic-rules-foundation]
 
 permissions:
   contents: write
@@ -25,6 +25,20 @@ jobs:
         run: npm ci
       - name: Build frontend
         run: npm run build
+      - name: Check Windows PowerShell scripts parse
+        shell: pwsh
+        run: |
+          $failed = $false
+          Get-ChildItem scripts/windows -Filter *.ps1 | ForEach-Object {
+            $tokens = $null
+            $errors = $null
+            [System.Management.Automation.Language.Parser]::ParseFile($_.FullName, [ref]$tokens, [ref]$errors) | Out-Null
+            if ($errors.Count -gt 0) {
+              $errors | ForEach-Object { Write-Error $_.Message }
+              $failed = $true
+            }
+          }
+          if ($failed) { exit 1 }
       - name: Setup Rust toolchain
         uses: dtolnay/rust-toolchain@stable
         with:
@@ -36,7 +50,7 @@ jobs:
       - name: Format Rust for compile diagnostics
         run: cargo fmt --manifest-path src-tauri/Cargo.toml --all
       - name: Commit formatting to development branch
-        if: github.event_name == 'push' && github.ref == 'refs/heads/feat/f1-xray-foundation'
+        if: github.event_name == 'push' && github.ref == 'refs/heads/feat/f6-traffic-rules-foundation'
         shell: pwsh
         run: |
           git add src-tauri/src
@@ -45,22 +59,10 @@ jobs:
             git config user.name "github-actions[bot]"
             git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
             git commit -m "style(rust): apply rustfmt to F1 core"
-            git push origin HEAD:refs/heads/feat/f1-xray-foundation
+            git push origin HEAD:refs/heads/feat/f6-traffic-rules-foundation
           }
-      - name: Resolve Rust lockfile
-        run: cargo generate-lockfile --manifest-path src-tauri/Cargo.toml
-      - name: Commit lockfile to development branch
-        if: github.event_name == 'push' && github.ref == 'refs/heads/feat/f1-xray-foundation'
-        shell: pwsh
-        run: |
-          git add src-tauri/Cargo.lock
-          git diff --cached --quiet
-          if ($LASTEXITCODE -ne 0) {
-            git config user.name "github-actions[bot]"
-            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            git commit -m "build: refresh Cargo.lock for Premium auth"
-            git push origin HEAD:refs/heads/feat/f1-xray-foundation
-          }
+      - name: Verify committed dependency lockfile
+        run: cargo metadata --manifest-path src-tauri/Cargo.toml --locked --format-version 1 --no-deps > $null
       - name: Rust check
         run: cargo check --manifest-path src-tauri/Cargo.toml --locked
       - name: Rust unit tests
