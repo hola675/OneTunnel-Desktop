@@ -3,6 +3,7 @@ import { invoke } from '@tauri-apps/api/core'
 import './App.css'
 
 type RouteAction = 'tunnel' | 'direct' | 'block'
+type CaptureCapability = { platform: string; driverInstalled: boolean; interceptionActive: boolean; redirectSupported: boolean; blockingSupported: boolean; administratorApprovalRequired: boolean; reason: string }
 type PolicySnapshot = { revision: number; defaultAction: RouteAction; rules: RouteRule[]; enforcementActive: boolean }
 type RouteDecision = { action: RouteAction; matchedRule: string; applied: boolean; explanation: string }
 type RouteRule = { id: string; enabled: boolean; application: string | null; hostPattern: string | null; portStart: number | null; portEnd: number | null; action: RouteAction }
@@ -37,6 +38,7 @@ export default function App() {
   const [policyPort, setPolicyPort] = useState(443)
   const [policyPattern, setPolicyPattern] = useState('*.example.com')
   const [policyAction, setPolicyAction] = useState<RouteAction>('tunnel')
+  const [captureCapability, setCaptureCapability] = useState<CaptureCapability | null>(null)
   const [savedPolicy, setSavedPolicy] = useState<PolicySnapshot | null>(null)
   const [policyResult, setPolicyResult] = useState<RouteDecision | null>(null)
   const [policyError, setPolicyError] = useState<string | null>(null)
@@ -64,6 +66,7 @@ export default function App() {
       .catch(() => setError('Native application information is unavailable.'))
     checkRuntime()
     invoke<PolicySnapshot>('get_traffic_policy').then(setSavedPolicy).catch(() => {})
+    invoke<CaptureCapability>('get_capture_capability').then(setCaptureCapability).catch(() => {})
     invoke<Account | null>('get_account').then(setAccount).catch(() => setLoginError('Account status unavailable.'))
     const refresh = () => {
       invoke<EngineStatus>('get_engine_status')
@@ -246,6 +249,9 @@ export default function App() {
       <section className="detail-card" aria-labelledby="policy-heading" style={{ marginTop: 16 }}>
         <h2 id="policy-heading" style={{ fontSize: 17, marginTop: 0 }}>Reglas de tráfico · Simulación</h2>
         <p className="muted">Vista previa de decisiones por aplicación, destino y puerto. No captura ni bloquea conexiones reales.</p>
+        <p className="availability-note" style={{ textAlign: 'left' }} role="status">
+          {captureCapability ? `Captura Windows: ${captureCapability.interceptionActive ? 'activa' : 'inactiva'} · Redirección: ${captureCapability.redirectSupported ? 'disponible' : 'no disponible'} · Bloqueo: ${captureCapability.blockingSupported ? 'disponible' : 'no disponible'}` : 'Consultando capacidades Windows…'}
+        </p>
         <div className="policy-fields">
           <label>Aplicación<input value={policyApp} onChange={e => setPolicyApp(e.target.value)} maxLength={255} /></label>
           <label>Destino solicitado<input value={policyHost} onChange={e => setPolicyHost(e.target.value)} maxLength={255} /></label>
