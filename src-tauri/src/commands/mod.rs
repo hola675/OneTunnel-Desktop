@@ -23,3 +23,10 @@ pub fn get_app_info() -> AppInfo {
 pub fn inspect_xray_runtime() -> crate::xray::RuntimeCheck {
     crate::xray::inspect_runtime()
 }
+
+#[tauri::command]
+pub fn get_engine_status(
+    engine: tauri::State<'_, crate::engine::Engine>,
+) -> Result<crate::engine::EngineStatus, String> {
+    engine.status()
+}
