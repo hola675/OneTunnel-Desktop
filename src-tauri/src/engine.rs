@@ -60,7 +60,8 @@ impl Engine {
             phase: inner.phase.clone(),
             pid: inner.child.as_ref().map(Child::id),
             socks_address: format!("{SOCKS_HOST}:{DEFAULT_SOCKS_PORT}"),
-            socks_ready: inner.child.is_some() && crate::health::socks5_ready(DEFAULT_SOCKS_PORT).is_ok(),
+            socks_ready: inner.child.is_some()
+                && crate::health::socks5_ready(DEFAULT_SOCKS_PORT).is_ok(),
             message: inner.message.clone(),
         }
     }
@@ -129,8 +130,12 @@ impl Engine {
         let mut guard = self.inner.lock().map_err(|_| "Engine state poisoned")?;
         if let Some(child) = guard.child.as_mut() {
             if child.try_wait().map_err(|e| e.to_string())?.is_none() {
-                child.kill().map_err(|e| format!("Cannot stop owned Xray: {e}"))?;
-                child.wait().map_err(|e| format!("Cannot reap owned Xray: {e}"))?;
+                child
+                    .kill()
+                    .map_err(|e| format!("Cannot stop owned Xray: {e}"))?;
+                child
+                    .wait()
+                    .map_err(|e| format!("Cannot reap owned Xray: {e}"))?;
             }
         }
         guard.child = None;
@@ -164,12 +169,17 @@ mod tests {
     }
     #[test]
     fn stop_without_start_is_safe() {
-        assert!(matches!(Engine::default().stop().unwrap().phase, EnginePhase::Disconnected));
+        assert!(matches!(
+            Engine::default().stop().unwrap().phase,
+            EnginePhase::Disconnected
+        ));
     }
     #[test]
     fn missing_runtime_fails_closed() {
         let engine = Engine::default();
-        assert!(engine.start(Path::new("missing-xray.exe"), Path::new("missing.json")).is_err());
+        assert!(engine
+            .start(Path::new("missing-xray.exe"), Path::new("missing.json"))
+            .is_err());
         assert!(engine.status().unwrap().pid.is_none());
     }
 }

@@ -11,11 +11,19 @@ pub fn socks5_ready(port: u16) -> Result<(), String> {
     let timeout = Duration::from_millis(750);
     let mut stream = TcpStream::connect_timeout(&target, timeout)
         .map_err(|e| format!("SOCKS connection unavailable: {e}"))?;
-    stream.set_read_timeout(Some(timeout)).map_err(|e| e.to_string())?;
-    stream.set_write_timeout(Some(timeout)).map_err(|e| e.to_string())?;
-    stream.write_all(&[0x05, 0x01, 0x00]).map_err(|e| e.to_string())?;
+    stream
+        .set_read_timeout(Some(timeout))
+        .map_err(|e| e.to_string())?;
+    stream
+        .set_write_timeout(Some(timeout))
+        .map_err(|e| e.to_string())?;
+    stream
+        .write_all(&[0x05, 0x01, 0x00])
+        .map_err(|e| e.to_string())?;
     let mut reply = [0u8; 2];
-    stream.read_exact(&mut reply).map_err(|e| format!("SOCKS handshake failed: {e}"))?;
+    stream
+        .read_exact(&mut reply)
+        .map_err(|e| format!("SOCKS handshake failed: {e}"))?;
     if reply != [0x05, 0x00] {
         return Err("SOCKS listener returned an invalid authentication response".into());
     }

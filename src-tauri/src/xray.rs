@@ -1,7 +1,10 @@
 //! F1: local Xray runtime discovery and non-invasive validation.
 //! This module never changes Windows routes, DNS, or Proxifier settings.
 use serde::Serialize;
-use std::{path::{Path, PathBuf}, process::Command};
+use std::{
+    path::{Path, PathBuf},
+    process::Command,
+};
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -15,7 +18,9 @@ pub struct RuntimeCheck {
 fn runtime_candidates() -> Vec<PathBuf> {
     let mut paths = Vec::new();
     if let Ok(path) = std::env::var("ONETUNNEL_XRAY_PATH") {
-        if !path.is_empty() { paths.push(PathBuf::from(path)); }
+        if !path.is_empty() {
+            paths.push(PathBuf::from(path));
+        }
     }
     if let Ok(exe) = std::env::current_exe() {
         if let Some(dir) = exe.parent() {
@@ -29,20 +34,26 @@ fn runtime_candidates() -> Vec<PathBuf> {
 
 pub fn inspect_runtime() -> RuntimeCheck {
     for candidate in runtime_candidates() {
-        if !candidate.is_file() { continue; }
+        if !candidate.is_file() {
+            continue;
+        }
         match check_version(&candidate) {
-            Ok(output) => return RuntimeCheck {
-                ready: true,
-                executable: Some(candidate.display().to_string()),
-                version_output: Some(output),
-                message: "Xray executable responds to version check; no tunnel started.".into(),
-            },
-            Err(error) => return RuntimeCheck {
-                ready: false,
-                executable: Some(candidate.display().to_string()),
-                version_output: None,
-                message: format!("Xray runtime verification failed: {error}"),
-            },
+            Ok(output) => {
+                return RuntimeCheck {
+                    ready: true,
+                    executable: Some(candidate.display().to_string()),
+                    version_output: Some(output),
+                    message: "Xray executable responds to version check; no tunnel started.".into(),
+                }
+            }
+            Err(error) => {
+                return RuntimeCheck {
+                    ready: false,
+                    executable: Some(candidate.display().to_string()),
+                    version_output: None,
+                    message: format!("Xray runtime verification failed: {error}"),
+                }
+            }
         }
     }
     RuntimeCheck {
@@ -55,7 +66,10 @@ pub fn inspect_runtime() -> RuntimeCheck {
 
 fn check_version(path: &Path) -> Result<String, String> {
     // No shell invocation. The known local executable is invoked directly.
-    let output = Command::new(path).arg("version").output().map_err(|e| e.to_string())?;
+    let output = Command::new(path)
+        .arg("version")
+        .output()
+        .map_err(|e| e.to_string())?;
     if !output.status.success() {
         return Err(format!("xray version exited with {}", output.status));
     }
@@ -76,7 +90,10 @@ mod tests {
     #[test]
     fn runtime_result_is_json_serializable() {
         let result = RuntimeCheck {
-            ready: false, executable: None, version_output: None, message: "missing".into()
+            ready: false,
+            executable: None,
+            version_output: None,
+            message: "missing".into(),
         };
         assert!(!result.ready);
     }

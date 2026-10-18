@@ -17,32 +17,64 @@ pub struct RealityServer {
 
 fn is_uuid(value: &str) -> bool {
     let bytes = value.as_bytes();
-    bytes.len() == 36 && [8, 13, 18, 23].iter().all(|&n| bytes[n] == b'-')
-        && bytes.iter().enumerate().all(|(i, b)| {
-            [8, 13, 18, 23].contains(&i) || b.is_ascii_hexdigit()
-        })
+    bytes.len() == 36
+        && [8, 13, 18, 23].iter().all(|&n| bytes[n] == b'-')
+        && bytes
+            .iter()
+            .enumerate()
+            .all(|(i, b)| [8, 13, 18, 23].contains(&i) || b.is_ascii_hexdigit())
 }
 
 pub fn validate_server(server: &RealityServer) -> Result<(), &'static str> {
     let host = server.address.trim();
-    if host.is_empty() || host.len() > 253 || host.chars().any(|c| matches!(c, '/' | '\\' | '@' | ' ' | ':' | '\n')) {
+    if host.is_empty()
+        || host.len() > 253
+        || host
+            .chars()
+            .any(|c| matches!(c, '/' | '\\' | '@' | ' ' | ':' | '\n'))
+    {
         return Err("Invalid server address");
     }
-    if host.parse::<IpAddr>().map(|ip| ip.is_loopback() || ip.is_unspecified() || ip.is_multicast()).unwrap_or(false) {
+    if host
+        .parse::<IpAddr>()
+        .map(|ip| ip.is_loopback() || ip.is_unspecified() || ip.is_multicast())
+        .unwrap_or(false)
+    {
         return Err("Forbidden destination address");
     }
-    if server.port != 443 { return Err("V1 requires port 443"); }
-    if !is_uuid(&server.uuid) { return Err("Invalid UUID"); }
-    if server.public_key.len() != 43 || !server.public_key.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'-' || b == b'_') {
+    if server.port != 443 {
+        return Err("V1 requires port 443");
+    }
+    if !is_uuid(&server.uuid) {
+        return Err("Invalid UUID");
+    }
+    if server.public_key.len() != 43
+        || !server
+            .public_key
+            .bytes()
+            .all(|b| b.is_ascii_alphanumeric() || b == b'-' || b == b'_')
+    {
         return Err("Invalid Reality public key");
     }
-    if server.short_id.len() > 16 || server.short_id.len() % 2 != 0 || !server.short_id.bytes().all(|b| b.is_ascii_hexdigit()) {
+    if server.short_id.len() > 16
+        || server.short_id.len() % 2 != 0
+        || !server.short_id.bytes().all(|b| b.is_ascii_hexdigit())
+    {
         return Err("Invalid Reality short ID");
     }
-    if server.server_name.is_empty() || server.server_name.len() > 253 || server.server_name.chars().any(|c| matches!(c, '/' | '\\' | ' ' | ':' | '\n')) {
+    if server.server_name.is_empty()
+        || server.server_name.len() > 253
+        || server
+            .server_name
+            .chars()
+            .any(|c| matches!(c, '/' | '\\' | ' ' | ':' | '\n'))
+    {
         return Err("Invalid Reality SNI");
     }
-    if !matches!(server.fingerprint.as_str(), "chrome" | "firefox" | "safari" | "edge") {
+    if !matches!(
+        server.fingerprint.as_str(),
+        "chrome" | "firefox" | "safari" | "edge"
+    ) {
         return Err("Unsupported fingerprint");
     }
     Ok(())
@@ -50,7 +82,9 @@ pub fn validate_server(server: &RealityServer) -> Result<(), &'static str> {
 
 pub fn build_config(server: &RealityServer, socks_port: u16) -> Result<Value, &'static str> {
     validate_server(server)?;
-    if socks_port < 1024 { return Err("SOCKS port outside allowed range"); }
+    if socks_port < 1024 {
+        return Err("SOCKS port outside allowed range");
+    }
     Ok(json!({
         "log": {"loglevel": "warning"},
         "inbounds": [{
@@ -86,24 +120,33 @@ mod tests {
     use super::*;
     fn fixture() -> RealityServer {
         RealityServer {
-            address: "vpn.example.org".into(), port: 443,
+            address: "vpn.example.org".into(),
+            port: 443,
             uuid: "b4c7e30a-8f42-4a9f-a7b6-c168507c0457".into(),
             public_key: "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA".into(),
-            short_id: "abcdef01".into(), server_name: "www.example.org".into(),
-            fingerprint: "chrome".into()
+            short_id: "abcdef01".into(),
+            server_name: "www.example.org".into(),
+            fingerprint: "chrome".into(),
         }
     }
-    #[test] fn valid_config_is_local_socks_only() {
+    #[test]
+    fn valid_config_is_local_socks_only() {
         let conf = build_config(&fixture(), 10808).unwrap();
         assert_eq!(conf["inbounds"][0]["listen"], "127.0.0.1");
         assert_eq!(conf["inbounds"][0]["settings"]["udp"], false);
-        assert_eq!(conf["outbounds"][0]["streamSettings"]["security"], "reality");
+        assert_eq!(
+            conf["outbounds"][0]["streamSettings"]["security"],
+            "reality"
+        );
     }
-    #[test] fn invalid_uuid_is_rejected() {
-        let mut s = fixture(); s.uuid = "invalid".into();
+    #[test]
+    fn invalid_uuid_is_rejected() {
+        let mut s = fixture();
+        s.uuid = "invalid".into();
         assert!(build_config(&s, 10808).is_err());
     }
-    #[test] fn privileged_port_is_rejected() {
+    #[test]
+    fn privileged_port_is_rejected() {
         assert!(build_config(&fixture(), 80).is_err());
     }
 }
