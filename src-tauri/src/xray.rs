@@ -37,13 +37,30 @@ pub fn inspect_runtime() -> RuntimeCheck {
         if !candidate.is_file() {
             continue;
         }
+        let expected = match std::env::var("ONETUNNEL_XRAY_SHA256") {
+            Ok(hash) => hash,
+            Err(_) => return RuntimeCheck {
+                ready: false,
+                executable: Some(candidate.display().to_string()),
+                version_output: None,
+                message: "Expected Xray SHA-256 not configured; refusing execution".into(),
+            },
+        };
+        if let Err(error) = crate::integrity::verify_sha256(&candidate, &expected) {
+            return RuntimeCheck {
+                ready: false,
+                executable: Some(candidate.display().to_string()),
+                version_output: None,
+                message: error,
+            };
+        }
         match check_version(&candidate) {
             Ok(output) => {
                 return RuntimeCheck {
                     ready: true,
                     executable: Some(candidate.display().to_string()),
                     version_output: Some(output),
-                    message: "Xray executable responds to version check; no tunnel started.".into(),
+                    message: "Xray SHA-256 verified and version check passed; no tunnel started.".into(),
                 }
             }
             Err(error) => {
