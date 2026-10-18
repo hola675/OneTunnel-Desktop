@@ -103,6 +103,25 @@ pub fn probe(candidate: &ServerCandidate) -> ServerMeasurement {
         score: Some((score * 10.0).round() / 10.0), status: "tcp_preflight_only" }
 }
 
+/// Scan a bounded subset; do not silently claim all catalog servers were tested.
+/// Sort successful preflight before failed probes; stable ID tie-break.
+pub fn scan(mut candidates: Vec<ServerCandidate>) -> Vec<ServerMeasurement> {
+    candidates.retain(|candidate| candidate.eligible);
+    candidates.truncate(24);
+    let mut results = Vec::new();
+    for batch in candidates.chunks(6) {
+        let mut measured = std::thread::scope(|scope| {
+            let handles: Vec<_> = batch.iter().map(|candidate| scope.spawn(move || probe(candidate))).collect();
+            handles.into_iter().filter_map(|handle| handle.join().ok()).collect::<Vec<_>>()
+        });
+        results.append(&mut measured);
+    }
+    results.sort_by(|left, right|
+        right.score.partial_cmp(&left.score).unwrap_or(std::cmp::Ordering::Equal)
+            .then_with(|| left.id.cmp(&right.id)));
+    results
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
