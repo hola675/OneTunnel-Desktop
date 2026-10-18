@@ -1,3 +1,4 @@
+mod auth;
 mod commands;
 mod config;
 mod engine;
@@ -10,10 +11,14 @@ mod xray;
 pub fn run() {
     tauri::Builder::default()
         .manage(engine::Engine::default())
+        .manage(auth::AuthState::default())
         .invoke_handler(tauri::generate_handler![
             commands::get_app_info,
             commands::inspect_xray_runtime,
-            commands::get_engine_status
+            commands::get_engine_status,
+            commands::login_1vpn,
+            commands::get_account,
+            commands::logout_1vpn
         ])
         .run(tauri::generate_context!())
         .expect("error while running OneTunnel Desktop");
