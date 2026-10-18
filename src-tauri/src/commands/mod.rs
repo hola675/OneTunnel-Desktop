@@ -86,3 +86,8 @@ pub fn preview_saved_traffic_policy(
 ) -> Result<crate::routing::RouteDecision, String> {
     policies.preview(&connection)
 }
+
+#[tauri::command]
+pub fn get_capture_capability() -> crate::capture::CaptureCapability {
+    crate::capture::capability()
+}
