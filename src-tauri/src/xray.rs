@@ -39,12 +39,14 @@ pub fn inspect_runtime() -> RuntimeCheck {
         }
         let expected = match std::env::var("ONETUNNEL_XRAY_SHA256") {
             Ok(hash) => hash,
-            Err(_) => return RuntimeCheck {
-                ready: false,
-                executable: Some(candidate.display().to_string()),
-                version_output: None,
-                message: "Expected Xray SHA-256 not configured; refusing execution".into(),
-            },
+            Err(_) => {
+                return RuntimeCheck {
+                    ready: false,
+                    executable: Some(candidate.display().to_string()),
+                    version_output: None,
+                    message: "Expected Xray SHA-256 not configured; refusing execution".into(),
+                }
+            }
         };
         if let Err(error) = crate::integrity::verify_sha256(&candidate, &expected) {
             return RuntimeCheck {
@@ -60,7 +62,8 @@ pub fn inspect_runtime() -> RuntimeCheck {
                     ready: true,
                     executable: Some(candidate.display().to_string()),
                     version_output: Some(output),
-                    message: "Xray SHA-256 verified and version check passed; no tunnel started.".into(),
+                    message: "Xray SHA-256 verified and version check passed; no tunnel started."
+                        .into(),
                 }
             }
             Err(error) => {

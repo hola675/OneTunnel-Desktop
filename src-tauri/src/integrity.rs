@@ -10,8 +10,12 @@ pub fn verify_sha256(path: &Path, expected: &str) -> Result<(), String> {
     let mut hasher = Sha256::new();
     let mut buffer = [0u8; 64 * 1024];
     loop {
-        let n = input.read(&mut buffer).map_err(|e| format!("Cannot hash Xray runtime: {e}"))?;
-        if n == 0 { break; }
+        let n = input
+            .read(&mut buffer)
+            .map_err(|e| format!("Cannot hash Xray runtime: {e}"))?;
+        if n == 0 {
+            break;
+        }
         hasher.update(&buffer[..n]);
     }
     let actual = format!("{:x}", hasher.finalize());
@@ -34,7 +38,8 @@ mod tests {
     }
     #[test]
     fn incorrect_digest_is_rejected() {
-        let temp = std::env::temp_dir().join(format!("onetunnel-sha-mismatch-{}", std::process::id()));
+        let temp =
+            std::env::temp_dir().join(format!("onetunnel-sha-mismatch-{}", std::process::id()));
         std::fs::write(&temp, b"abc").unwrap();
         let outcome = verify_sha256(&temp, &"0".repeat(64));
         std::fs::remove_file(&temp).unwrap();
@@ -44,7 +49,10 @@ mod tests {
     fn known_digest_is_accepted() {
         let temp = std::env::temp_dir().join(format!("onetunnel-sha-test-{}", std::process::id()));
         std::fs::write(&temp, b"abc").unwrap();
-        let outcome = verify_sha256(&temp, "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad");
+        let outcome = verify_sha256(
+            &temp,
+            "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad",
+        );
         std::fs::remove_file(&temp).unwrap();
         assert!(outcome.is_ok());
     }
