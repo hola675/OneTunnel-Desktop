@@ -68,8 +68,12 @@ impl AuthState {
             if response.content_length().is_some_and(|length| length > MAX_REPLY_BYTES as u64) {
                 return Err("API response too large".into());
             }
-            let bytes = response.bytes().await.map_err(|_| "Could not read authentication response")?;
-            if bytes.len() > MAX_REPLY_BYTES { return Err("API response too large".into()); }
+            let mut response = response;
+            let mut bytes = Vec::new();
+            while let Some(chunk) = response.chunk().await.map_err(|_| "Could not read authentication response")? {
+                if chunk.len() > MAX_REPLY_BYTES.saturating_sub(bytes.len()) { return Err("API response too large".into()); }
+                bytes.extend_from_slice(&chunk);
+            }
             if status.is_success() {
                 let account: UserData = serde_json::from_slice(&bytes).map_err(|_| "Unexpected 1VPN account response")?;
                 if account.session_auth_token.is_empty() {
