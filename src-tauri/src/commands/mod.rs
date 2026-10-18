@@ -52,3 +52,12 @@ pub fn get_account(
 pub fn logout_1vpn(auth: tauri::State<'_, crate::auth::AuthState>) -> Result<(), String> {
     auth.logout()
 }
+
+#[tauri::command]
+pub fn preview_traffic_rule(
+    rules: Vec<crate::routing::RouteRule>,
+    default_action: crate::routing::RouteAction,
+    connection: crate::routing::ConnectionMeta,
+) -> Result<crate::routing::RouteDecision, String> {
+    crate::routing::evaluate(&rules, default_action, &connection)
+}
