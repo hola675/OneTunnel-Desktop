@@ -27,3 +27,20 @@ WFP signing/driver installation, performance testing with multithreaded TCP, DNS
 - In the desktop UI, rules can be added, reviewed and cleared for simulation; closing the application loses the configuration by design until a secure persistent schema exists.
 - The evaluator excludes the Xray executable and OneTunnel process from any requested block/redirect action, in addition to localhost, to prevent routing loops.
 - **Nothing in this change installs a kernel driver or routes packets.** Real interception requires separately reviewed Windows signing, installation, consent, rollback and compatibility.
+
+## WFP discovery and driver verification (next iteration)
+
+- Windows already includes Windows Filtering Platform; the `BFE` (Base Filtering Engine) Windows service is checked read-only by `capture.rs` via `sc.exe query BFE`.
+- `get_capture_capability` now returns `wfpEngineRunning` to the UI independently from `driverInstalled`, `interceptionActive`, `redirectSupported`, and `blockingSupported`. Only the WFP service readiness is measured; the others remain false until an audited real implementation is available.
+- The helper `scripts/windows/Test-OneTunnelWfpDriver.ps1` is an **audit-only** utility by default. It refuses unsigned packages and verifies the provided, independently trusted `OneTunnelWfp.inf` SHA-256. It accepts `-Install` only with elevation and PowerShell confirmation. No driver binaries are included in this repository.
+- Example for a future certified package, audit only: `pwsh -File scripts/windows/Test-OneTunnelWfpDriver.ps1 -InfPath C:\\approved\\OneTunnelWfp.inf -ExpectedInfSha256 <verified-hash>`
+- The installation tool itself does not activate transparent interception. That requires implementing, signing, registering and testing a WFP callout and TCP forwarding service.
+
+### Installation and readiness gate
+
+Do not run `pnputil` against arbitrary INF files or rely on the WFP service being active as evidence that transparent routing is available. The service, driver lifecycle, redirect records, privileged APIs, rollback and interoperability with existing Proxifier still require an independently reviewed implementation.
+
+References:
+- https://learn.microsoft.com/en-us/windows/win32/fwp/ale-layers
+- https://learn.microsoft.com/en-us/windows-hardware/drivers/network/using-bind-or-connect-redirection
+- https://learn.microsoft.com/en-us/windows-hardware/drivers/devtest/pnputil-command-syntax
