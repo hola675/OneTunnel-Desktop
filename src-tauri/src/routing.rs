@@ -64,6 +64,16 @@ fn matches_glob(pattern: &str, input: &str) -> bool {
     p == pattern.len()
 }
 
+fn application_matches(pattern: &str, application: &str) -> bool {
+    let normalized = application.replace('/', "\\");
+    let name = normalized.rsplit('\\').next().unwrap_or(&normalized);
+    if pattern.contains('/') || pattern.contains('\\') {
+        matches_glob(pattern, &normalized)
+    } else {
+        matches_glob(pattern, name)
+    }
+}
+
 fn internal_process(application: &str) -> bool {
     let normalized = application.replace('/', "\\").to_ascii_lowercase();
     let filename = normalized.rsplit('\\').next().unwrap_or(&normalized);
@@ -115,7 +125,7 @@ pub fn evaluate(rules: &[RouteRule], default: RouteAction, meta: &ConnectionMeta
         });
     }
     for rule in rules.iter().filter(|rule| rule.enabled) {
-        if rule.application.as_deref().is_some_and(|p| !matches_glob(p, &meta.application)) {
+        if rule.application.as_deref().is_some_and(|p| !application_matches(p, &meta.application)) {
             continue;
         }
         if rule.host_pattern.as_deref().is_some_and(|p| !matches_glob(p, &meta.destination_host)) {
@@ -148,6 +158,15 @@ mod tests {
     #[test] fn wildcard_and_case_insensitive_rules() {
         assert_eq!(evaluate(&[rule("*.example.com", RouteAction::Tunnel)], RouteAction::Direct,
             &meta("WWW.EXAMPLE.COM")).unwrap().action, RouteAction::Tunnel);
+    }
+    #[test] fn executable_rule_matches_full_windows_path() {
+        let request = ConnectionMeta {
+            application: "C:\\Program Files\\Mozilla Firefox\\FIREFOX.EXE".into(),
+            destination_host: "www.example.com".into(),
+            destination_port: 443,
+        };
+        assert_eq!(evaluate(&[rule("*.example.com", RouteAction::Tunnel)], RouteAction::Direct,
+            &request).unwrap().action, RouteAction::Tunnel);
     }
     #[test] fn localhost_is_always_direct() {
         assert_eq!(evaluate(&[rule("*", RouteAction::Block)], RouteAction::Block,
