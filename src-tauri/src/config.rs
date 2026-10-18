@@ -134,7 +134,10 @@ mod tests {
         let conf = build_config(&fixture(), 10808).unwrap();
         assert_eq!(conf["inbounds"][0]["listen"], "127.0.0.1");
         assert_eq!(conf["inbounds"][0]["settings"]["udp"], false);
-        assert_eq!(conf["outbounds"][0]["streamSettings"]["realitySettings"]["spiderX"], "");
+        assert_eq!(
+            conf["outbounds"][0]["streamSettings"]["realitySettings"]["spiderX"],
+            ""
+        );
         assert_eq!(
             conf["outbounds"][0]["streamSettings"]["security"],
             "reality"
