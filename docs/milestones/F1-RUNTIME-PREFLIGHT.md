@@ -29,3 +29,19 @@ npm run tauri dev
 ```
 
 Do not enable Connect merely because `inspect_xray_runtime().ready` returns true: this only certifies that a local executable responded to a version query. Before launching any binary, verify the pinned expected SHA-256 and source. In V1, Proxifier remains external and user-managed.
+
+## F1 follow-up — engine lifecycle scaffold
+
+- Added `src-tauri/src/engine.rs` with a single-owner, mutex-protected Xray child process.
+- Reads state using `get_engine_status` IPC; checks unexpected child exit on status requests.
+- Rejects duplicate owned processes and occupied local SOCKS port.
+- Includes internal start/stop methods and best-effort kill/reap on Engine drop.
+- Start/stop are **not exposed to the UI yet**: package integrity verification and secure Reality configuration generation must be completed first.
+- `running` means the child was launched, NOT that SOCKS is listening or 1VPN tunnel succeeded.
+- Must test Windows close/crash scenarios; in particular, Job Object supervision for abrupt parent termination is not implemented.
+
+### Required next implementation gates
+1. Verify exact SHA-256 of the pinned Xray binary before any launch.
+2. Validate authorized 1VPN server parameters, generate transient Xray JSON, and avoid leaking sensitive config to logs.
+3. Wire start/stop behind gated commands; prove SOCKS5 readiness and HTTPS egress before declaring CONNECTED.
+4. Run `cargo fmt`, `cargo check --locked`, `cargo test --locked`, and Windows process lifecycle tests.
