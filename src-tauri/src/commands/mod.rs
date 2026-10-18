@@ -52,3 +52,42 @@ pub fn get_account(
 pub fn logout_1vpn(auth: tauri::State<'_, crate::auth::AuthState>) -> Result<(), String> {
     auth.logout()
 }
+
+#[tauri::command]
+pub fn preview_traffic_rule(
+    rules: Vec<crate::routing::RouteRule>,
+    default_action: crate::routing::RouteAction,
+    connection: crate::routing::ConnectionMeta,
+) -> Result<crate::routing::RouteDecision, String> {
+    crate::routing::evaluate(&rules, default_action, &connection)
+}
+
+#[tauri::command]
+pub fn get_traffic_policy(
+    policies: tauri::State<'_, crate::policy::PolicyStore>,
+) -> Result<crate::policy::PolicySnapshot, String> {
+    policies.snapshot()
+}
+
+#[tauri::command]
+pub fn save_traffic_policy(
+    policies: tauri::State<'_, crate::policy::PolicyStore>,
+    rules: Vec<crate::routing::RouteRule>,
+    default_action: crate::routing::RouteAction,
+    expected_revision: u64,
+) -> Result<crate::policy::PolicySnapshot, String> {
+    policies.replace(rules, default_action, expected_revision)
+}
+
+#[tauri::command]
+pub fn preview_saved_traffic_policy(
+    policies: tauri::State<'_, crate::policy::PolicyStore>,
+    connection: crate::routing::ConnectionMeta,
+) -> Result<crate::routing::RouteDecision, String> {
+    policies.preview(&connection)
+}
+
+#[tauri::command]
+pub fn get_capture_capability() -> crate::capture::CaptureCapability {
+    crate::capture::capability()
+}
