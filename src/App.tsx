@@ -13,6 +13,7 @@ type EngineStatus = {
   phase: 'disconnected' | 'starting' | 'running' | 'error'
   pid: number | null
   socksAddress: string
+  socksReady: boolean
   message: string
 }
 
@@ -86,7 +87,7 @@ export default function App() {
         <article className="detail-card">
           <p className="detail-label">ENGINE</p>
           <p className="detail-value">{engine?.phase ?? 'Checking…'}</p>
-          <p className="availability-note" style={{ textAlign: 'left' }}>{engine?.message ?? 'Reading native state'}</p>
+          <p className="availability-note" style={{ textAlign: 'left' }}>{engine?.message ?? 'Reading native state'} · SOCKS {engine?.socksReady ? 'responding' : 'not verified'}</p>
         </article>
         <article className="detail-card socks-card">
           <div>
