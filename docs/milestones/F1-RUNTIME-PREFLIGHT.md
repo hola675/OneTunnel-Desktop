@@ -45,3 +45,23 @@ Do not enable Connect merely because `inspect_xray_runtime().ready` returns true
 2. Validate authorized 1VPN server parameters, generate transient Xray JSON, and avoid leaking sensitive config to logs.
 3. Wire start/stop behind gated commands; prove SOCKS5 readiness and HTTPS egress before declaring CONNECTED.
 4. Run `cargo fmt`, `cargo check --locked`, `cargo test --locked`, and Windows process lifecycle tests.
+
+## Further implementation (October 17, 2026)
+
+- `src-tauri/src/config.rs`: typed input validation and Xray VLESS/Reality JSON builder. Configuration is not wired to a privileged start command.
+- `src-tauri/src/health.rs`: localhost SOCKS5 no-auth handshake probe and mock-listener unit tests. Handshake success does not establish HTTPS tunnel or VPN egress.
+- `src-tauri/src/engine.rs`: exposes an independent `socksReady` field. No `connected` state is emitted.
+- UI polls `get_engine_status` every 2.5 seconds, without starting Xray.
+- `.github/workflows/windows-validation.yml`: Windows GitHub Actions checks frontend build and Rust formatting, compilation, and unit tests.
+
+### Status honesty
+
+Frontend build passed in workflow 39083743032 on its initial run; Rust checks were still running when this section was written. A passing CI run would prove compilation and unit tests only, not a functional connection to 1VPN. The user must still provide or retrieve an authorized real Free/Premium endpoint, verify the pinned Xray executable against its expected SHA-256, and execute an actual end-to-end Windows test.
+
+### Known security gaps before enabling Connect
+
+- No runtime binary SHA-256 verifier implemented.
+- No secured transient configuration storage and cleanup.
+- No Windows Job Object abrupt-termination handling.
+- No network HTTPS exit verification, token vault, authentication, or Premium account flow.
+- `Engine::start` is intentionally internal and is NOT safe to expose through IPC at this stage.
