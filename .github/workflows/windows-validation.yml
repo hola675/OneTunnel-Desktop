@@ -25,6 +25,20 @@ jobs:
         run: npm ci
       - name: Build frontend
         run: npm run build
+      - name: Check Windows PowerShell scripts parse
+        shell: pwsh
+        run: |
+          $failed = $false
+          Get-ChildItem scripts/windows -Filter *.ps1 | ForEach-Object {
+            $tokens = $null
+            $errors = $null
+            [System.Management.Automation.Language.Parser]::ParseFile($_.FullName, [ref]$tokens, [ref]$errors) | Out-Null
+            if ($errors.Count -gt 0) {
+              $errors | ForEach-Object { Write-Error $_.Message }
+              $failed = $true
+            }
+          }
+          if ($failed) { exit 1 }
       - name: Setup Rust toolchain
         uses: dtolnay/rust-toolchain@stable
         with:
