@@ -1,6 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { invoke } from '@tauri-apps/api/core'
 import './App.css'
+import TrafficRules from './TrafficRules'
 
 type Account = { username: string; isPremium: boolean; locationCount: number }
 type LoginResult = { status: 'authenticated'; account: Account } | { status: 'requires_2fa' }
@@ -253,6 +254,7 @@ export default function App() {
         </>}
 
         {section === 'settings' && <>
+          <TrafficRules />
           <section className="panel preferences">
             <div className="section-top on-panel"><div><p className="kicker">PREFERENCIAS</p><h2>Interfaz y diagnóstico</h2></div></div>
             <div className="setting-row"><div><strong>Actualización del estado</strong><p>Frecuencia de lectura del estado local del motor</p></div>
