@@ -33,6 +33,14 @@ mod tests {
         assert!(verify_sha256(Path::new("xray.exe"), "none").is_err());
     }
     #[test]
+    fn incorrect_digest_is_rejected() {
+        let temp = std::env::temp_dir().join(format!("onetunnel-sha-mismatch-{}", std::process::id()));
+        std::fs::write(&temp, b"abc").unwrap();
+        let outcome = verify_sha256(&temp, &"0".repeat(64));
+        std::fs::remove_file(&temp).unwrap();
+        assert!(outcome.is_err());
+    }
+    #[test]
     fn known_digest_is_accepted() {
         let temp = std::env::temp_dir().join(format!("onetunnel-sha-test-{}", std::process::id()));
         std::fs::write(&temp, b"abc").unwrap();
