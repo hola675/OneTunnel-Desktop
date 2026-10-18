@@ -125,12 +125,13 @@ impl Engine {
 
     pub fn stop(&self) -> Result<EngineStatus, String> {
         let mut guard = self.inner.lock().map_err(|_| "Engine state poisoned")?;
-        if let Some(mut child) = guard.child.take() {
+        if let Some(child) = guard.child.as_mut() {
             if child.try_wait().map_err(|e| e.to_string())?.is_none() {
                 child.kill().map_err(|e| format!("Cannot stop owned Xray: {e}"))?;
                 child.wait().map_err(|e| format!("Cannot reap owned Xray: {e}"))?;
             }
         }
+        guard.child = None;
         guard.config_path = None;
         guard.phase = EnginePhase::Disconnected;
         guard.message = "Xray stopped".into();
