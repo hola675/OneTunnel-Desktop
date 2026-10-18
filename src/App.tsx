@@ -9,14 +9,26 @@ type AppInfo = {
   coreStatus: string
 }
 
+type XrayPreflight = {
+  found: boolean
+  supported: boolean
+  executable: string
+  reportedVersion: string | null
+  issue: string | null
+}
+
 export default function App() {
   const [appInfo, setAppInfo] = useState<AppInfo | null>(null)
+  const [preflight, setPreflight] = useState<XrayPreflight | null>(null)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     invoke<AppInfo>('get_app_info')
       .then(setAppInfo)
       .catch(() => setError('Native application information is unavailable.'))
+    invoke<XrayPreflight>('get_xray_preflight')
+      .then(setPreflight)
+      .catch(() => setError('Xray runtime preflight is unavailable.'))
   }, [])
 
   return (
@@ -27,7 +39,7 @@ export default function App() {
           <p className="eyebrow">ONETUNNEL</p>
           <h1>Desktop</h1>
         </div>
-        <span className="build-tag">FOUNDATION</span>
+        <span className="build-tag">F1 · IN PROGRESS</span>
       </header>
 
       <section className="connection-card" aria-labelledby="connection-title">
@@ -36,11 +48,13 @@ export default function App() {
           <span>DISCONNECTED</span>
         </div>
         <h2 id="connection-title">Your connection is off</h2>
-        <p className="muted">Choose an account and server to get started.</p>
+        <p className="muted">Xray engine integration is in progress.</p>
         <button className="connect-button" type="button" disabled>
           Connect <span aria-hidden="true">→</span>
         </button>
-        <p className="availability-note">Connection will be available in a future release.</p>
+        <p className="availability-note">
+          Connection is disabled until Xray, SOCKS5 and real tunnel verification pass.
+        </p>
       </section>
 
       <section className="details-grid" aria-label="Connection details">
@@ -57,7 +71,12 @@ export default function App() {
             <p className="detail-label">LOCAL SOCKS5</p>
             <p className="detail-value mono">127.0.0.1:10808</p>
           </div>
-          <span className="future-badge">PLANNED</span>
+          <span className="future-badge">NOT ACTIVE</span>
+        </article>
+        <article className="detail-card">
+          <p className="detail-label">XRAY RUNTIME</p>
+          <p className="detail-value">{!preflight ? 'Checking…' : preflight.found ? 'Found · not verified' : 'Not bundled'}</p>
+          <p className="muted">{preflight?.issue ?? 'No active engine'}</p>
         </article>
       </section>
 
