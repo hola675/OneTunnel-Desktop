@@ -9,6 +9,13 @@ type AppInfo = {
   coreStatus: string
 }
 
+type EngineStatus = {
+  phase: 'disconnected' | 'starting' | 'running' | 'error'
+  pid: number | null
+  socksAddress: string
+  message: string
+}
+
 type RuntimeCheck = {
   ready: boolean
   executable: string | null
@@ -19,6 +26,7 @@ type RuntimeCheck = {
 export default function App() {
   const [appInfo, setAppInfo] = useState<AppInfo | null>(null)
   const [runtime, setRuntime] = useState<RuntimeCheck | null>(null)
+  const [engine, setEngine] = useState<EngineStatus | null>(null)
   const [error, setError] = useState<string | null>(null)
 
   const checkRuntime = () => {
@@ -32,6 +40,7 @@ export default function App() {
       .then(setAppInfo)
       .catch(() => setError('Native application information is unavailable.'))
     checkRuntime()
+    invoke<EngineStatus>('get_engine_status').then(setEngine).catch(() => setError('Engine status unavailable.'))
   }, [])
 
   return (
@@ -73,6 +82,11 @@ export default function App() {
             <p className="detail-value mono">127.0.0.1:10808</p>
           </div>
           <span className="future-badge">NOT LISTENING</span>
+        </article>
+        <article className="detail-card">
+          <p className="detail-label">ENGINE</p>
+          <p className="detail-value">{engine?.phase ?? 'Checking…'}</p>
+          <p className="availability-note" style={{ textAlign: 'left' }}>{engine?.message ?? 'Reading native state'}</p>
         </article>
         <article className="detail-card socks-card">
           <div>
