@@ -65,11 +65,9 @@ impl AuthState {
             let status = response.status();
             // Do not attempt another host after a definitive account response (incl. 2FA).
             if status.is_server_error() { continue; }
-            let Some(length) = response.content_length() else {
-                // Bounded streaming will still enforce the limit.
-                return Err("API response length not supplied".into());
-            };
-            if length as usize > MAX_REPLY_BYTES { return Err("API response too large".into()); }
+            if response.content_length().is_some_and(|length| length > MAX_REPLY_BYTES as u64) {
+                return Err("API response too large".into());
+            }
             let bytes = response.bytes().await.map_err(|_| "Could not read authentication response")?;
             if bytes.len() > MAX_REPLY_BYTES { return Err("API response too large".into()); }
             if status.is_success() {
