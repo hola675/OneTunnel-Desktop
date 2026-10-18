@@ -2,6 +2,9 @@ import { useEffect, useState } from 'react'
 import { invoke } from '@tauri-apps/api/core'
 import './App.css'
 
+type RouteAction = 'tunnel' | 'direct' | 'block'
+type RouteDecision = { action: RouteAction; matchedRule: string; applied: boolean; explanation: string }
+type RouteRule = { id: string; enabled: boolean; application: string | null; hostPattern: string | null; portStart: number | null; portEnd: number | null; action: RouteAction }
 type Account = { username: string; isPremium: boolean; locationCount: number }
 type LoginResult = { status: 'authenticated'; account: Account } | { status: 'requires_2fa' }
 
@@ -28,6 +31,13 @@ type RuntimeCheck = {
 }
 
 export default function App() {
+  const [policyApp, setPolicyApp] = useState('firefox.exe')
+  const [policyHost, setPolicyHost] = useState('example.com')
+  const [policyPort, setPolicyPort] = useState(443)
+  const [policyPattern, setPolicyPattern] = useState('*.example.com')
+  const [policyAction, setPolicyAction] = useState<RouteAction>('tunnel')
+  const [policyResult, setPolicyResult] = useState<RouteDecision | null>(null)
+  const [policyError, setPolicyError] = useState<string | null>(null)
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [twoFactor, setTwoFactor] = useState('')
@@ -85,6 +95,21 @@ export default function App() {
     } finally {
       setLoginBusy(false)
     }
+  }
+
+  const previewRule = async () => {
+    setPolicyError(null)
+    setPolicyResult(null)
+    const rules: RouteRule[] = [{ id: 'user:preview', enabled: true, application: policyApp || null,
+      hostPattern: policyPattern || null, portStart: policyPort, portEnd: policyPort, action: policyAction }]
+    try {
+      const decision = await invoke<RouteDecision>('preview_traffic_rule', {
+        rules, defaultAction: 'direct', connection: {
+          application: policyApp, destinationHost: policyHost, destinationPort: policyPort
+        }
+      })
+      setPolicyResult(decision)
+    } catch (error) { setPolicyError(String(error)) }
   }
 
   const logout = async () => {
@@ -185,6 +210,24 @@ export default function App() {
         </article>
       </section>
 
+      <section className="detail-card" aria-labelledby="policy-heading" style={{ marginTop: 16 }}>
+        <h2 id="policy-heading" style={{ fontSize: 17, marginTop: 0 }}>Reglas de tráfico · Simulación</h2>
+        <p className="muted">Vista previa de decisiones por aplicación, destino y puerto. No captura ni bloquea conexiones reales.</p>
+        <div className="policy-fields">
+          <label>Aplicación<input value={policyApp} onChange={e => setPolicyApp(e.target.value)} maxLength={255} /></label>
+          <label>Destino solicitado<input value={policyHost} onChange={e => setPolicyHost(e.target.value)} maxLength={255} /></label>
+          <label>Regla de destino<input value={policyPattern} onChange={e => setPolicyPattern(e.target.value)} maxLength={255} /></label>
+          <label>Puerto<input type="number" value={policyPort} min={1} max={65535} onChange={e => setPolicyPort(Number(e.target.value))} /></label>
+          <label>Acción<select value={policyAction} onChange={e => setPolicyAction(e.target.value as RouteAction)}>
+            <option value="tunnel">Túnel OneTunnel</option><option value="direct">Directo</option><option value="block">Bloquear</option>
+          </select></label>
+        </div>
+        <button type="button" onClick={() => void previewRule()}>Simular regla</button>
+        {policyResult && <p role="status" className="availability-note" style={{ textAlign: 'left' }}>
+          Resultado: {policyResult.action.toUpperCase()} · Regla: {policyResult.matchedRule} · No aplicada a Windows.
+        </p>}
+        {policyError && <p role="alert" className="backend-error">{policyError}</p>}
+      </section>
       <footer className="app-footer">
         {error ? (
           <span className="backend-error">{error}</span>
