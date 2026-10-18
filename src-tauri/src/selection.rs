@@ -54,6 +54,13 @@ pub fn catalog(account: &UserData) -> Vec<ServerCandidate> {
     out
 }
 
+fn is_private_address(ip: std::net::IpAddr) -> bool {
+    match ip {
+        std::net::IpAddr::V4(v4) => v4.is_private() || v4.is_link_local() || v4.is_broadcast(),
+        std::net::IpAddr::V6(v6) => v6.is_unique_local() || v6.is_unicast_link_local(),
+    }
+}
+
 fn median(values: &mut [u32]) -> u32 {
     values.sort_unstable();
     let length = values.len();
@@ -69,7 +76,7 @@ pub fn probe(candidate: &ServerCandidate) -> ServerMeasurement {
             let address = format!("{}:{}", candidate.host, candidate.port);
             let result = address.to_socket_addrs()
                 .ok().and_then(|addresses| {
-                    addresses.filter(|a| !a.ip().is_loopback() && !a.ip().is_unspecified() && !a.ip().is_private())
+                    addresses.filter(|a| !a.ip().is_loopback() && !a.ip().is_unspecified() && !is_private_address(a.ip()))
                         .find_map(|endpoint| {
                             let start = Instant::now();
                             TcpStream::connect_timeout(&endpoint, Duration::from_millis(650))
