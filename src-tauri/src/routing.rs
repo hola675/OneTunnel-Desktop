@@ -64,6 +64,12 @@ fn matches_glob(pattern: &str, input: &str) -> bool {
     p == pattern.len()
 }
 
+fn internal_process(application: &str) -> bool {
+    let normalized = application.replace('/', "\\").to_ascii_lowercase();
+    let filename = normalized.rsplit('\\').next().unwrap_or(&normalized);
+    matches!(filename, "xray.exe" | "onetunnel-desktop.exe" | "onetunnel.exe")
+}
+
 fn localhost(host: &str) -> bool {
     host.eq_ignore_ascii_case("localhost")
         || host.parse::<IpAddr>().is_ok_and(|ip| ip.is_loopback())
@@ -96,6 +102,12 @@ pub fn evaluate(rules: &[RouteRule], default: RouteAction, meta: &ConnectionMeta
     if meta.destination_port == 0 || meta.application.trim().is_empty()
         || meta.destination_host.trim().is_empty()
     { return Err("Invalid connection metadata".into()); }
+    if internal_process(&meta.application) {
+        return Ok(RouteDecision {
+            action: RouteAction::Direct, matched_rule: "system:internal-process".into(),
+            applied: false, explanation: "Simulation only; core runtime processes are excluded to avoid redirect loops",
+        });
+    }
     if localhost(&meta.destination_host) {
         return Ok(RouteDecision {
             action: RouteAction::Direct, matched_rule: "system:loopback".into(),
@@ -147,6 +159,15 @@ mod tests {
     }
     #[test] fn no_rule_is_applied_to_real_traffic() {
         assert!(!evaluate(&[], RouteAction::Block, &meta("example.com")).unwrap().applied);
+    }
+    #[test] fn xray_core_is_excluded_from_redirect_and_block() {
+        for name in ["xray.exe", "C:\\Program Files\\OneTunnel\\xray.exe", "ONETUNNEL-DESKTOP.EXE"] {
+            let mut request = meta("example.com");
+            request.application = name.into();
+            let result = evaluate(&[rule("*", RouteAction::Block)], RouteAction::Tunnel, &request).unwrap();
+            assert_eq!(result.action, RouteAction::Direct);
+            assert_eq!(result.matched_rule, "system:internal-process");
+        }
     }
     #[test] fn reject_invalid_port_range() {
         let mut r = rule("*", RouteAction::Tunnel);
