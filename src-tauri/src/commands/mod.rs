@@ -30,3 +30,25 @@ pub fn get_engine_status(
 ) -> Result<crate::engine::EngineStatus, String> {
     engine.status()
 }
+
+#[tauri::command]
+pub async fn login_1vpn(
+    auth: tauri::State<'_, crate::auth::AuthState>,
+    email: String,
+    password: String,
+    token: Option<String>,
+) -> Result<crate::auth::LoginResult, String> {
+    auth.login(email, password, token).await
+}
+
+#[tauri::command]
+pub fn get_account(
+    auth: tauri::State<'_, crate::auth::AuthState>,
+) -> Result<Option<crate::provider::PublicAccountSummary>, String> {
+    auth.summary()
+}
+
+#[tauri::command]
+pub fn logout_1vpn(auth: tauri::State<'_, crate::auth::AuthState>) -> Result<(), String> {
+    auth.logout()
+}
