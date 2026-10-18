@@ -65,3 +65,17 @@ Frontend build passed in workflow 39083743032 on its initial run; Rust checks we
 - No Windows Job Object abrupt-termination handling.
 - No network HTTPS exit verification, token vault, authentication, or Premium account flow.
 - `Engine::start` is intentionally internal and is NOT safe to expose through IPC at this stage.
+
+## SHA-256 preflight hardening
+
+New `integrity.rs` hashes `xray.exe` in chunks and compares the full SHA-256 digest. The preflight now **fails closed** unless `ONETUNNEL_XRAY_SHA256` is set to a 64-character expected digest and matches the local executable. It performs the version invocation only after the comparison succeeds. The expected digest must be sourced independently from the verified, pinned runtime manifest; do not derive it from an unknown downloaded executable and then treat that as trusted.
+
+Development example (PowerShell; replace with the independently verified checksum):
+
+```powershell
+$env:ONETUNNEL_XRAY_PATH = 'C:\path\to\xray.exe'
+$env:ONETUNNEL_XRAY_SHA256 = '<trusted-64-character-sha256-from-manifest>'
+npm run tauri dev
+```
+
+This is a development integrity gate, not yet a release-ready packaged manifest. File replacement between hash verification and execution (TOCTOU) needs further Windows hardening, and a signed source-verified packaging process remains outstanding.
