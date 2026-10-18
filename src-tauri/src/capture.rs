@@ -24,10 +24,8 @@ fn bfe_running() -> bool {
     match output {
         Ok(result) if result.status.success() => {
             let text = String::from_utf8_lossy(&result.stdout);
-            text.lines().any(|line| {
-                line.trim_start().starts_with("STATE")
-                    && line.contains("RUNNING")
-            })
+            text.lines()
+                .any(|line| line.trim_start().starts_with("STATE") && line.contains("RUNNING"))
         }
         _ => false,
     }
