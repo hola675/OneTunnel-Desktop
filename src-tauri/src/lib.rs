@@ -5,6 +5,7 @@ mod engine;
 mod health;
 mod integrity;
 mod provider;
+mod routing;
 mod xray;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -18,7 +19,8 @@ pub fn run() {
             commands::get_engine_status,
             commands::login_1vpn,
             commands::get_account,
-            commands::logout_1vpn
+            commands::logout_1vpn,
+            commands::preview_traffic_rule
         ])
         .run(tauri::generate_context!())
         .expect("error while running OneTunnel Desktop");
