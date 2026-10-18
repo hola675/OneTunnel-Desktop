@@ -3,6 +3,7 @@ import { invoke } from '@tauri-apps/api/core'
 import './App.css'
 
 type RouteAction = 'tunnel' | 'direct' | 'block'
+type PolicySnapshot = { revision: number; defaultAction: RouteAction; rules: RouteRule[]; enforcementActive: boolean }
 type RouteDecision = { action: RouteAction; matchedRule: string; applied: boolean; explanation: string }
 type RouteRule = { id: string; enabled: boolean; application: string | null; hostPattern: string | null; portStart: number | null; portEnd: number | null; action: RouteAction }
 type Account = { username: string; isPremium: boolean; locationCount: number }
@@ -36,6 +37,7 @@ export default function App() {
   const [policyPort, setPolicyPort] = useState(443)
   const [policyPattern, setPolicyPattern] = useState('*.example.com')
   const [policyAction, setPolicyAction] = useState<RouteAction>('tunnel')
+  const [savedPolicy, setSavedPolicy] = useState<PolicySnapshot | null>(null)
   const [policyResult, setPolicyResult] = useState<RouteDecision | null>(null)
   const [policyError, setPolicyError] = useState<string | null>(null)
   const [email, setEmail] = useState('')
@@ -61,6 +63,7 @@ export default function App() {
       .then(setAppInfo)
       .catch(() => setError('Native application information is unavailable.'))
     checkRuntime()
+    invoke<PolicySnapshot>('get_traffic_policy').then(setSavedPolicy).catch(() => {})
     invoke<Account | null>('get_account').then(setAccount).catch(() => setLoginError('Account status unavailable.'))
     const refresh = () => {
       invoke<EngineStatus>('get_engine_status')
@@ -110,6 +113,36 @@ export default function App() {
       })
       setPolicyResult(decision)
     } catch (error) { setPolicyError(String(error)) }
+  }
+
+  const savePolicyRule = async () => {
+    setPolicyError(null)
+    if (!savedPolicy) {
+      setPolicyError('No se pudo cargar la política. Actualiza la aplicación.')
+      return
+    }
+    const rule: RouteRule = {
+      id: 'rule-' + (savedPolicy.revision + 1), enabled: true,
+      application: policyApp || null, hostPattern: policyPattern || null,
+      portStart: policyPort, portEnd: policyPort, action: policyAction
+    }
+    try {
+      const result = await invoke<PolicySnapshot>('save_traffic_policy', {
+        rules: [...savedPolicy.rules, rule], defaultAction: 'direct', expectedRevision: savedPolicy.revision
+      })
+      setSavedPolicy(result)
+    } catch (reason) { setPolicyError(String(reason)) }
+  }
+
+  const clearPolicyRules = async () => {
+    if (!savedPolicy) return
+    setPolicyError(null)
+    try {
+      const next = await invoke<PolicySnapshot>('save_traffic_policy', {
+        rules: [], defaultAction: 'direct', expectedRevision: savedPolicy.revision
+      })
+      setSavedPolicy(next)
+    } catch (reason) { setPolicyError(String(reason)) }
   }
 
   const logout = async () => {
@@ -222,7 +255,17 @@ export default function App() {
             <option value="tunnel">Túnel OneTunnel</option><option value="direct">Directo</option><option value="block">Bloquear</option>
           </select></label>
         </div>
-        <button type="button" onClick={() => void previewRule()}>Simular regla</button>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
+          <button type="button" onClick={() => void previewRule()}>Simular regla</button>
+          <button type="button" onClick={() => void savePolicyRule()} disabled={!savedPolicy}>Guardar regla (solo memoria)</button>
+          <button type="button" onClick={() => void clearPolicyRules()} disabled={!savedPolicy?.rules.length}>Vaciar reglas</button>
+        </div>
+        <p className="availability-note" style={{ textAlign: 'left' }}>
+          {savedPolicy ? `${savedPolicy.rules.length} reglas guardadas · revisión ${savedPolicy.revision} · captura Windows desactivada` : 'Cargando política…'}
+        </p>
+        {savedPolicy?.rules.map(rule => <p key={rule.id} className="availability-note" style={{ textAlign: 'left' }}>
+          {rule.application ?? '*'} → {rule.hostPattern ?? '*'}:{rule.portStart ?? '*'} · {rule.action.toUpperCase()}
+        </p>)}
         {policyResult && <p role="status" className="availability-note" style={{ textAlign: 'left' }}>
           Resultado: {policyResult.action.toUpperCase()} · Regla: {policyResult.matchedRule} · No aplicada a Windows.
         </p>}
