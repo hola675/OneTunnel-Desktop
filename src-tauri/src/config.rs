@@ -25,7 +25,7 @@ fn is_uuid(value: &str) -> bool {
 
 pub fn validate_server(server: &RealityServer) -> Result<(), &'static str> {
     let host = server.address.trim();
-    if host.is_empty() || host.len() > 253 || host.contains(['/', '\\', '@', ' ', ':', '\n']) {
+    if host.is_empty() || host.len() > 253 || host.chars().any(|c| matches!(c, '/' | '\\' | '@' | ' ' | ':' | '\n')) {
         return Err("Invalid server address");
     }
     if host.parse::<IpAddr>().map(|ip| ip.is_loopback() || ip.is_unspecified() || ip.is_multicast()).unwrap_or(false) {
@@ -39,7 +39,7 @@ pub fn validate_server(server: &RealityServer) -> Result<(), &'static str> {
     if server.short_id.len() > 16 || server.short_id.len() % 2 != 0 || !server.short_id.bytes().all(|b| b.is_ascii_hexdigit()) {
         return Err("Invalid Reality short ID");
     }
-    if server.server_name.is_empty() || server.server_name.len() > 253 || server.server_name.contains(['/', '\\', ' ', ':', '\n']) {
+    if server.server_name.is_empty() || server.server_name.len() > 253 || server.server_name.chars().any(|c| matches!(c, '/' | '\\' | ' ' | ':' | '\n')) {
         return Err("Invalid Reality SNI");
     }
     if !matches!(server.fingerprint.as_str(), "chrome" | "firefox" | "safari" | "edge") {
