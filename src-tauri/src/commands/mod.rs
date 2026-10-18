@@ -61,3 +61,28 @@ pub fn preview_traffic_rule(
 ) -> Result<crate::routing::RouteDecision, String> {
     crate::routing::evaluate(&rules, default_action, &connection)
 }
+
+#[tauri::command]
+pub fn get_traffic_policy(
+    policies: tauri::State<'_, crate::policy::PolicyStore>,
+) -> Result<crate::policy::PolicySnapshot, String> {
+    policies.snapshot()
+}
+
+#[tauri::command]
+pub fn save_traffic_policy(
+    policies: tauri::State<'_, crate::policy::PolicyStore>,
+    rules: Vec<crate::routing::RouteRule>,
+    default_action: crate::routing::RouteAction,
+    expected_revision: u64,
+) -> Result<crate::policy::PolicySnapshot, String> {
+    policies.replace(rules, default_action, expected_revision)
+}
+
+#[tauri::command]
+pub fn preview_saved_traffic_policy(
+    policies: tauri::State<'_, crate::policy::PolicyStore>,
+    connection: crate::routing::ConnectionMeta,
+) -> Result<crate::routing::RouteDecision, String> {
+    policies.preview(&connection)
+}
