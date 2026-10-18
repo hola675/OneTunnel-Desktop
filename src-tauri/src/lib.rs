@@ -1,4 +1,5 @@
 mod auth;
+mod capture;
 mod commands;
 mod config;
 mod engine;
@@ -25,7 +26,8 @@ pub fn run() {
             commands::preview_traffic_rule,
             commands::get_traffic_policy,
             commands::save_traffic_policy,
-            commands::preview_saved_traffic_policy
+            commands::preview_saved_traffic_policy,
+            commands::get_capture_capability
         ])
         .run(tauri::generate_context!())
         .expect("error while running OneTunnel Desktop");
