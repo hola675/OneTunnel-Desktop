@@ -63,3 +63,9 @@
   .connection-card { animation: appear .45s ease-out both; }
   @keyframes appear { from { opacity: 0; transform: translateY(7px); } to { opacity: 1; transform: translateY(0); } }
 }
+
+.policy-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin:16px 0}
+.policy-fields label{display:grid;gap:7px;font-size:12px;color:#c8d6c9}
+.policy-fields input,.policy-fields select{width:100%;min-width:0;border:1px solid #44534b;background:#0e1510;border-radius:8px;padding:9px 10px;color:#f0f6ee;font:inherit}
+.policy-fields input:focus-visible,.policy-fields select:focus-visible{outline:2px solid #b9f36a;outline-offset:2px}
+@media(max-width:480px){.policy-fields{grid-template-columns:1fr}}
