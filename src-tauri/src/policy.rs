@@ -32,31 +32,45 @@ impl Default for PolicyStore {
 
 impl PolicyStore {
     pub fn snapshot(&self) -> Result<PolicySnapshot, String> {
-        self.inner.read().map(|state| state.clone())
+        self.inner
+            .read()
+            .map(|state| state.clone())
             .map_err(|_| "Policy store is unavailable".into())
     }
 
-    pub fn replace(&self, rules: Vec<RouteRule>, default_action: RouteAction, expected_revision: u64)
-        -> Result<PolicySnapshot, String>
-    {
+    pub fn replace(
+        &self,
+        rules: Vec<RouteRule>,
+        default_action: RouteAction,
+        expected_revision: u64,
+    ) -> Result<PolicySnapshot, String> {
         validate(&rules)?;
         // There is no enforcement backend. Reject a default that could imply
         // system-wide tunnelling or blocking if an engine were accidentally added.
         if default_action != RouteAction::Direct {
             return Err("Default routing must remain direct until enforcement is certified".into());
         }
-        let mut state = self.inner.write().map_err(|_| "Policy store is unavailable")?;
+        let mut state = self
+            .inner
+            .write()
+            .map_err(|_| "Policy store is unavailable")?;
         if state.revision != expected_revision {
             return Err("Policy was modified; reload before saving".into());
         }
-        state.revision = state.revision.checked_add(1).ok_or("Policy revision overflow")?;
+        state.revision = state
+            .revision
+            .checked_add(1)
+            .ok_or("Policy revision overflow")?;
         state.rules = rules;
         state.default_action = default_action;
         Ok(state.clone())
     }
 
     pub fn preview(&self, connection: &ConnectionMeta) -> Result<RouteDecision, String> {
-        let state = self.inner.read().map_err(|_| "Policy store is unavailable")?;
+        let state = self
+            .inner
+            .read()
+            .map_err(|_| "Policy store is unavailable")?;
         evaluate(&state.rules, state.default_action, connection)
     }
 }

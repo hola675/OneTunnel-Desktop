@@ -4,9 +4,9 @@ mod config;
 mod engine;
 mod health;
 mod integrity;
+mod policy;
 mod provider;
 mod routing;
-mod policy;
 mod xray;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
