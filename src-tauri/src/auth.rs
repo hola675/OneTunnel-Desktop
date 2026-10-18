@@ -27,6 +27,12 @@ pub enum LoginResult {
 }
 
 impl AuthState {
+    pub fn server_catalog(&self) -> Result<Vec<crate::selection::ServerCandidate>, String> {
+        let guard = self.account.lock().map_err(|_| "Account state unavailable")?;
+        let account = guard.as_ref().ok_or("Sign in to 1VPN to retrieve server locations")?;
+        Ok(crate::selection::catalog(account))
+    }
+
     pub fn summary(&self) -> Result<Option<PublicAccountSummary>, String> {
         let guard = self
             .account
