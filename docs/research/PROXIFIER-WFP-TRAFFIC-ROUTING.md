@@ -19,3 +19,11 @@
 
 ## Release gates
 WFP signing/driver installation, performance testing with multithreaded TCP, DNS leak tests, IPv6, loop prevention, compatibility with Proxifier and antivirus, Windows networking restart, fail-open/fail-closed policies, UAC/rollback installer, and user consent. Until these pass, all capture/block options stay disabled.
+
+## Follow-up: guarded policy management
+
+- `policy.rs` now maintains validated in-memory routing rules, a monotonic revision number, default direct routing, and an explicit `enforcementActive: false`.
+- `save_traffic_policy` accepts replacements only when their expected revision matches, avoiding accidental overwrites.
+- In the desktop UI, rules can be added, reviewed and cleared for simulation; closing the application loses the configuration by design until a secure persistent schema exists.
+- The evaluator excludes the Xray executable and OneTunnel process from any requested block/redirect action, in addition to localhost, to prevent routing loops.
+- **Nothing in this change installs a kernel driver or routes packets.** Real interception requires separately reviewed Windows signing, installation, consent, rollback and compatibility.
