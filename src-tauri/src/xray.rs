@@ -111,6 +111,11 @@ mod tests {
         assert!(check_version(Path::new("does-not-exist-onetunnel-xray.exe")).is_err());
     }
     #[test]
+    fn invalid_runtime_path_never_reports_success() {
+        let missing = Path::new("missing-runtime-version-check.exe");
+        assert!(check_version(missing).is_err());
+    }
+    #[test]
     fn runtime_result_is_json_serializable() {
         let result = RuntimeCheck {
             ready: false,
