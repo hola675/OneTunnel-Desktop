@@ -69,7 +69,12 @@ impl AuthState {
         }
 
         // A newer login/logout invalidates any earlier in-flight authentication.
-        let generation = self.generation.fetch_add(1, Ordering::SeqCst) + 1;
+        let generation = {
+            let mut guard = self.account.lock().map_err(|_| "Account state unavailable")?;
+            let generation = self.generation.fetch_add(1, Ordering::SeqCst) + 1;
+            *guard = None;
+            generation
+        };
         // Never persist passwords or log request/response bodies.
         let client = reqwest::Client::builder()
             .timeout(std::time::Duration::from_secs(12))
