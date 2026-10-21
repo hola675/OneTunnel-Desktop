@@ -50,6 +50,44 @@ pub async fn probe_remote_tcp(
     Ok(result)
 }
 
+/// Starts only an authenticated, eligible 1VPN server. SOCKS readiness is not HTTPS verification.
+#[tauri::command]
+pub fn connect_1vpn(
+    app: tauri::AppHandle,
+    auth: tauri::State<'_, crate::auth::AuthState>,
+    engine: tauri::State<'_, crate::engine::Engine>,
+    location_index: usize,
+    server_index: usize,
+) -> Result<crate::engine::EngineStatus, String> {
+    use std::io::Write;
+    use tauri::Manager;
+    let selected = auth.selected_server(location_index, server_index)?;
+    let config = crate::config::build_config(&selected, crate::engine::DEFAULT_SOCKS_PORT)
+        .map_err(str::to_owned)?;
+    let runtime = crate::xray::inspect_runtime();
+    if !runtime.ready {
+        return Err(runtime.message);
+    }
+    let executable = runtime.executable.ok_or("Verified Xray executable unavailable")?;
+    let directory = app.path().app_local_data_dir().map_err(|_| "Cannot locate app data directory")?;
+    std::fs::create_dir_all(&directory).map_err(|_| "Cannot prepare app data directory")?;
+    let nonce = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH)
+        .map_err(|_| "System clock unavailable")?.as_nanos();
+    let path = directory.join(format!("onetunnel-session-{}-{nonce}.json", std::process::id()));
+    let mut file = std::fs::OpenOptions::new().write(true).create_new(true)
+        .open(&path).map_err(|_| "Cannot create session config")?;
+    let result = (|| {
+        serde_json::to_writer(&mut file, &config).map_err(|_| "Cannot serialize Xray config")?;
+        file.flush().map_err(|_| "Cannot flush Xray config")?;
+        drop(file);
+        engine.start(std::path::Path::new(&executable), &path)
+    })();
+    if result.is_err() {
+        let _ = std::fs::remove_file(&path);
+    }
+    result
+}
+
 #[tauri::command]
 pub fn stop_engine(
     engine: tauri::State<'_, crate::engine::Engine>,
