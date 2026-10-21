@@ -109,6 +109,8 @@ impl Engine {
                 Ok(Some(_)) => {
                     guard.child = None;
                     guard.config_path = None;
+                    guard.phase = EnginePhase::Disconnected;
+                    guard.message = "Previous Xray process already exited".into();
                 }
                 Err(error) => return Err(format!("Cannot inspect existing Xray process: {error}")),
             }
@@ -120,6 +122,7 @@ impl Engine {
         drop(listener);
 
         guard.phase = EnginePhase::Starting;
+        guard.message = "Starting verified Xray executable".into();
         let child = match Command::new(executable)
             .arg("run")
             .arg("-config")
