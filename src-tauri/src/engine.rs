@@ -41,6 +41,13 @@ pub struct Engine {
     inner: Mutex<Inner>,
 }
 
+// Only delete session files created by OneTunnel, never arbitrary caller files.
+fn cleanup_session_config(path: &Path) {
+    if path.file_name().and_then(|name| name.to_str()).is_some_and(|name| name.starts_with("onetunnel-session-") && name.ends_with(".json")) {
+        let _ = std::fs::remove_file(path);
+    }
+}
+
 impl Default for Engine {
     fn default() -> Self {
         Self {
@@ -71,7 +78,9 @@ impl Engine {
             match child.try_wait() {
                 Ok(Some(exit)) => {
                     guard.child = None;
-                    guard.config_path = None;
+                    if let Some(path) = guard.config_path.take() {
+                        cleanup_session_config(&path);
+                    }
                     guard.phase = EnginePhase::Error;
                     guard.message = format!("Xray exited unexpectedly: {exit}");
                 }
@@ -113,7 +122,9 @@ impl Engine {
                 Ok(None) => return Err("An Xray process is already owned by OneTunnel".into()),
                 Ok(Some(_)) => {
                     guard.child = None;
-                    guard.config_path = None;
+                    if let Some(path) = guard.config_path.take() {
+                        cleanup_session_config(&path);
+                    }
                     guard.phase = EnginePhase::Disconnected;
                     guard.message = "Previous Xray process already exited".into();
                 }
@@ -165,7 +176,9 @@ impl Engine {
             }
         }
         guard.child = None;
-        guard.config_path = None;
+        if let Some(path) = guard.config_path.take() {
+            cleanup_session_config(&path);
+        }
         guard.phase = EnginePhase::Disconnected;
         guard.message = "Xray stopped".into();
         Ok(Self::status_locked(&guard, false))
@@ -178,6 +191,9 @@ impl Drop for Engine {
             if let Some(mut child) = guard.child.take() {
                 let _ = child.kill();
                 let _ = child.wait();
+            }
+            if let Some(path) = guard.config_path.take() {
+                cleanup_session_config(&path);
             }
         }
     }
