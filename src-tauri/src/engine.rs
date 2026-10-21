@@ -41,6 +41,13 @@ pub struct Engine {
     inner: Mutex<Inner>,
 }
 
+// Only delete session files created by OneTunnel, never arbitrary caller files.
+fn cleanup_session_config(path: &Path) {
+    if path.file_name().and_then(|name| name.to_str()).is_some_and(|name| name.starts_with("onetunnel-session-") && name.ends_with(".json")) {
+        let _ = std::fs::remove_file(path);
+    }
+}
+
 impl Default for Engine {
     fn default() -> Self {
         Self {
@@ -55,13 +62,12 @@ impl Default for Engine {
 }
 
 impl Engine {
-    fn status_locked(inner: &Inner) -> EngineStatus {
+    fn status_locked(inner: &Inner, socks_ready: bool) -> EngineStatus {
         EngineStatus {
             phase: inner.phase.clone(),
             pid: inner.child.as_ref().map(Child::id),
             socks_address: format!("{SOCKS_HOST}:{DEFAULT_SOCKS_PORT}"),
-            socks_ready: inner.child.is_some()
-                && crate::health::socks5_ready(DEFAULT_SOCKS_PORT).is_ok(),
+            socks_ready,
             message: inner.message.clone(),
         }
     }
@@ -72,7 +78,9 @@ impl Engine {
             match child.try_wait() {
                 Ok(Some(exit)) => {
                     guard.child = None;
-                    guard.config_path = None;
+                    if let Some(path) = guard.config_path.take() {
+                        cleanup_session_config(&path);
+                    }
                     guard.phase = EnginePhase::Error;
                     guard.message = format!("Xray exited unexpectedly: {exit}");
                 }
@@ -83,7 +91,17 @@ impl Engine {
                 Ok(None) => {}
             }
         }
-        Ok(Self::status_locked(&guard))
+        let ready = guard.child.is_some() && crate::health::socks5_ready(DEFAULT_SOCKS_PORT).is_ok();
+        if guard.child.is_some() && matches!(guard.phase, EnginePhase::Starting | EnginePhase::Running) {
+            if ready {
+                guard.phase = EnginePhase::Running;
+                guard.message = "Local SOCKS5 handshake verified; remote VPN egress NOT verified".into();
+            } else if matches!(guard.phase, EnginePhase::Running) {
+                guard.phase = EnginePhase::Starting;
+                guard.message = "Local SOCKS5 handshake lost; remote VPN egress NOT verified".into();
+            }
+        }
+        Ok(Self::status_locked(&guard, ready))
     }
 
     /// Start ONLY after the caller has verified integrity and written a validated config.
@@ -92,17 +110,35 @@ impl Engine {
         if !executable.is_file() || !config.is_file() {
             return Err("Verified executable and configuration files are required".into());
         }
+        // Never allow a directory or missing file to masquerade as a runtime configuration.
+        let config_meta = std::fs::metadata(config).map_err(|_| "Cannot inspect Xray configuration")?;
+        if !config_meta.is_file() || config_meta.len() == 0 || config_meta.len() > 1024 * 1024 {
+            return Err("Xray configuration must be a nonempty file below 1 MiB".into());
+        }
+        // Serialize start/stop before inspecting ownership and binding the port.
+        let mut guard = self.inner.lock().map_err(|_| "Engine state poisoned")?;
+        if let Some(child) = guard.child.as_mut() {
+            match child.try_wait() {
+                Ok(None) => return Err("An Xray process is already owned by OneTunnel".into()),
+                Ok(Some(_)) => {
+                    guard.child = None;
+                    if let Some(path) = guard.config_path.take() {
+                        cleanup_session_config(&path);
+                    }
+                    guard.phase = EnginePhase::Disconnected;
+                    guard.message = "Previous Xray process already exited".into();
+                }
+                Err(error) => return Err(format!("Cannot inspect existing Xray process: {error}")),
+            }
+        }
         // Fail closed when the default SOCKS port is already occupied.
         let address = SocketAddr::new(IpAddr::V4(SOCKS_HOST), DEFAULT_SOCKS_PORT);
         let listener = TcpListener::bind(address)
             .map_err(|e| format!("Local SOCKS port is unavailable: {e}"))?;
         drop(listener);
 
-        let mut guard = self.inner.lock().map_err(|_| "Engine state poisoned")?;
-        if guard.child.is_some() {
-            return Err("An Xray process is already owned by OneTunnel".into());
-        }
         guard.phase = EnginePhase::Starting;
+        guard.message = "Starting verified Xray executable".into();
         let child = match Command::new(executable)
             .arg("run")
             .arg("-config")
@@ -121,9 +157,10 @@ impl Engine {
         };
         guard.config_path = Some(config.to_path_buf());
         guard.child = Some(child);
-        guard.phase = EnginePhase::Running;
-        guard.message = "Xray launched; tunnel NOT yet verified".into();
-        Ok(Self::status_locked(&guard))
+        // Starting is intentional: process creation is not SOCKS or VPN verification.
+        guard.phase = EnginePhase::Starting;
+        guard.message = "Xray launched; SOCKS and VPN tunnel NOT yet verified".into();
+        Ok(Self::status_locked(&guard, false))
     }
 
     pub fn stop(&self) -> Result<EngineStatus, String> {
@@ -139,10 +176,12 @@ impl Engine {
             }
         }
         guard.child = None;
-        guard.config_path = None;
+        if let Some(path) = guard.config_path.take() {
+            cleanup_session_config(&path);
+        }
         guard.phase = EnginePhase::Disconnected;
         guard.message = "Xray stopped".into();
-        Ok(Self::status_locked(&guard))
+        Ok(Self::status_locked(&guard, false))
     }
 }
 
@@ -152,6 +191,9 @@ impl Drop for Engine {
             if let Some(mut child) = guard.child.take() {
                 let _ = child.kill();
                 let _ = child.wait();
+            }
+            if let Some(path) = guard.config_path.take() {
+                cleanup_session_config(&path);
             }
         }
     }
@@ -173,6 +215,30 @@ mod tests {
             Engine::default().stop().unwrap().phase,
             EnginePhase::Disconnected
         ));
+    }
+    #[test]
+    fn initial_status_never_claims_socks_ready() {
+        let status = Engine::default().status().unwrap();
+        assert!(!status.socks_ready);
+        assert!(status.pid.is_none());
+    }
+    #[test]
+    fn stop_is_idempotent_and_never_claims_a_ready_listener() {
+        let engine = Engine::default();
+        for _ in 0..3 {
+            let status = engine.stop().unwrap();
+            assert!(matches!(status.phase, EnginePhase::Disconnected));
+            assert!(status.pid.is_none());
+            assert!(!status.socks_ready);
+        }
+    }
+    #[test]
+    fn empty_configuration_cannot_start_engine() {
+        let path = std::env::temp_dir().join(format!("onetunnel-empty-{}-{:?}.json", std::process::id(), std::thread::current().id()));
+        std::fs::write(&path, b"").unwrap();
+        let result = Engine::default().start(std::env::current_exe().unwrap().as_path(), &path);
+        let _ = std::fs::remove_file(&path);
+        assert!(result.is_err());
     }
     #[test]
     fn missing_runtime_fails_closed() {

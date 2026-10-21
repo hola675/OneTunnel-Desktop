@@ -2,26 +2,42 @@ mod auth;
 mod capture;
 mod commands;
 mod config;
+mod diagnostics;
 mod engine;
+mod egress;
 mod health;
 mod integrity;
 mod policy;
 mod provider;
+mod recovery;
 mod routing;
 mod xray;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .setup(|app| {
+            use tauri::Manager;
+            let dir = app.path().app_local_data_dir()?;
+            let logs = diagnostics::Diagnostics::new(dir.join("logs").join("events.jsonl"));
+            logs.record("INFO", "application", "started");
+            app.manage(logs);
+            Ok(())
+        })
         .manage(engine::Engine::default())
         .manage(auth::AuthState::default())
         .manage(policy::PolicyStore::default())
         .invoke_handler(tauri::generate_handler![
             commands::get_app_info,
+            commands::get_diagnostic_events,
             commands::inspect_xray_runtime,
             commands::get_engine_status,
+            commands::probe_remote_tcp,
+            commands::stop_engine,
+            commands::connect_1vpn,
             commands::login_1vpn,
             commands::get_account,
+            commands::list_1vpn_servers,
             commands::logout_1vpn,
             commands::preview_traffic_rule,
             commands::get_traffic_policy,

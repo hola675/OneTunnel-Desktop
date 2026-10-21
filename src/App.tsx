@@ -1,8 +1,10 @@
-import { useEffect, useState, type FormEvent } from 'react'
+import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { invoke } from '@tauri-apps/api/core'
 import './App.css'
 import TrafficRules from './TrafficRules'
+import ServerSelection from './ServerSelection'
 
+type DiagnosticEvent = { at: string; category: 'motor' | 'sistema' | 'cuenta'; message: string }
 type Account = { username: string; isPremium: boolean; locationCount: number }
 type LoginResult = { status: 'authenticated'; account: Account } | { status: 'requires_2fa' }
 type EngineStatus = {
@@ -12,6 +14,7 @@ type EngineStatus = {
   socksReady: boolean
   message: string
 }
+type EgressProbe = { verificationLevel: 'remote_tcp_only' | 'unverified'; targetPort: number; httpsVerified: boolean; tcpConnected: boolean; elapsedMs: number | null; target: string; message: string }
 type RuntimeCheck = {
   ready: boolean
   executable: string | null
@@ -24,6 +27,12 @@ type Preference = { refreshInterval: number; compact: boolean; notifications: bo
 const initialPreferences: Preference = { refreshInterval: 2500, compact: false, notifications: true }
 
 export default function App() {
+  const pollingInFlight = useRef(false)
+  const lastEngineEvent = useRef<string | null>(null)
+  const [events, setEvents] = useState<DiagnosticEvent[]>([])
+  const recordEvent = (category: DiagnosticEvent['category'], message: string) => {
+    setEvents(previous => [{ at: new Date().toLocaleTimeString(), category, message }, ...previous].slice(0, 80))
+  }
   const [section, setSection] = useState<Section>('overview')
   const [preferences, setPreferences] = useState<Preference>(initialPreferences)
   const [appInfo, setAppInfo] = useState<AppInfo | null>(null)
@@ -36,17 +45,40 @@ export default function App() {
   const [requires2fa, setRequires2fa] = useState(false)
   const [loginBusy, setLoginBusy] = useState(false)
   const [refreshBusy, setRefreshBusy] = useState(false)
+  const [stopBusy, setStopBusy] = useState(false)
+  const [enginePollFailures, setEnginePollFailures] = useState(0)
+  const [remoteProbe, setRemoteProbe] = useState<EgressProbe | null>(null)
+  const [remoteProbeBusy, setRemoteProbeBusy] = useState(false)
   const [loginError, setLoginError] = useState<string | null>(null)
   const [systemError, setSystemError] = useState<string | null>(null)
   const [lastChecked, setLastChecked] = useState<Date | null>(null)
 
   const readEngine = async () => {
+    if (pollingInFlight.current) return
+    pollingInFlight.current = true
     try {
       const status = await invoke<EngineStatus>('get_engine_status')
       setEngine(status)
+      setEnginePollFailures(0)
+      if (!status.socksReady || status.phase !== 'running') setRemoteProbe(null)
+      setSystemError(previous => previous === 'No se pudo consultar el estado del motor.' ? null : previous)
       setLastChecked(new Date())
+      const signature = [status.phase, status.pid ?? '-', status.socksReady, status.message].join('|')
+      if (lastEngineEvent.current !== signature) {
+        lastEngineEvent.current = signature
+        recordEvent('motor', `${status.phase} · SOCKS5: ${status.socksReady ? 'disponible' : 'no disponible'} · ${status.message}`)
+      }
     } catch {
+      setEnginePollFailures(previous => previous + 1)
+      setEngine(null)
+      setRemoteProbe(null)
+      if (lastEngineEvent.current !== 'unreachable') {
+        lastEngineEvent.current = 'unreachable'
+        recordEvent('sistema', 'No se pudo consultar el estado del motor.')
+      }
       setSystemError('No se pudo consultar el estado del motor.')
+    } finally {
+      pollingInFlight.current = false
     }
   }
   const checkRuntime = async () => {
@@ -113,10 +145,29 @@ export default function App() {
     } catch { setLoginError('No se pudo cerrar la sesión.') }
   }
 
+  const testRemote = async () => {
+    if (remoteProbeBusy || !socksReady) return
+    setRemoteProbeBusy(true)
+    setRemoteProbe(null)
+    try { setRemoteProbe(await invoke<EgressProbe>('probe_remote_tcp')) }
+    catch { setSystemError('No se pudo realizar la prueba TCP a través de SOCKS5.') }
+    finally { setRemoteProbeBusy(false) }
+  }
+  const stopEngine = async () => {
+    if (stopBusy) return
+    setStopBusy(true)
+    try {
+      setEngine(await invoke<EngineStatus>('stop_engine'))
+      setRemoteProbe(null)
+      recordEvent('motor', 'Desconexión manual solicitada; proceso Xray propio detenido.')
+    } catch { setSystemError('No se pudo detener el motor Xray. Comprueba el diagnóstico.') }
+    finally { setStopBusy(false) }
+  }
+
   const phase = engine?.phase ?? 'disconnected'
   const socksReady = Boolean(engine?.socksReady)
   const runtimeReady = Boolean(runtime?.ready)
-  const connectionVerified = false // No HTTPS egress verification IPC exists yet.
+  const connectionVerified = false // TCP CONNECT is not HTTPS or VPN egress verification.
   const connectionLabel = phase === 'error' ? 'Error del motor' :
     phase === 'running' ? 'Motor en ejecución (sin verificar)' :
     phase === 'starting' ? 'Iniciando motor' : 'Desconectado'
@@ -166,6 +217,7 @@ export default function App() {
           </div>
         </header>
 
+        {enginePollFailures >= 2 && <div role="status" className="message error-message">Se ha perdido la comunicación con el motor ({enginePollFailures} consultas fallidas). No se puede confirmar el estado de la conexión. La aplicación seguirá comprobándolo.</div>}
         {systemError && <div role="alert" className="message error-message">{systemError}<button type="button" onClick={() => setSystemError(null)} aria-label="Cerrar aviso">×</button></div>}
 
         {section === 'overview' && <>
@@ -176,8 +228,8 @@ export default function App() {
               <p>Conexión VLESS/Reality a través de un proxy SOCKS5 local. No modifica las rutas de Windows.</p>
             </div>
             <div className="hero-action">
-              <button type="button" className="primary-button" disabled title="Requiere conexión y verificación HTTPS del túnel">Conectar <span aria-hidden="true">↗</span></button>
-              <span>Disponible al completar la validación de red</span>
+              {engine?.pid != null ? <button type="button" className="primary-button" onClick={() => void stopEngine()} disabled={stopBusy}>{stopBusy ? 'Deteniendo…' : 'Desconectar motor'} <span aria-hidden="true">■</span></button> : <button type="button" className="primary-button" disabled title="Requiere conexión y verificación HTTPS del túnel">Conectar <span aria-hidden="true">↗</span></button>}
+              <span>{engine?.pid != null ? 'Detiene solo Xray administrado por OneTunnel; no cambia Proxifier.' : 'Disponible al completar la validación de red'}</span>
             </div>
           </section>
 
@@ -250,10 +302,25 @@ export default function App() {
               <div className="separator"/><span className="technical">IP de salida: — · Latencia: —</span>
             </article>
           </div>
+          <section className="panel preferences" aria-label="Prueba de salida TCP remota">
+            <div className="section-top on-panel"><h2>Conectividad remota por SOCKS5</h2><button type="button" className="text-action" disabled={!socksReady || remoteProbeBusy} onClick={() => void testRemote()}>{remoteProbeBusy ? 'Probando…' : 'Probar conexión TCP ↗'}</button></div>
+            <p className="panel-subtitle">Prueba manual hacia un destino HTTPS público, usando SOCKS5 local. Confirma únicamente la apertura TCP: no verifica TLS, HTTPS ni la identidad de salida VPN.</p>
+            {remoteProbe && <p className={remoteProbe.tcpConnected ? 'message info-message' : 'message error-message'} role="status">{remoteProbe.tcpConnected ? 'TCP remoto accesible (no equivale a VPN verificada)' : 'TCP remoto no accesible'} · {remoteProbe.target}:{remoteProbe.targetPort} · {remoteProbe.elapsedMs === null ? 'Sin tiempo medido' : `${remoteProbe.elapsedMs} ms`} · {remoteProbe.message}</p>}
+          </section>
+          <section className="panel preferences" aria-label="Registro de eventos de diagnóstico">
+            <div className="section-top on-panel"><h2>Registro de eventos</h2><button type="button" className="text-action" onClick={() => setEvents([])} disabled={events.length === 0}>Limpiar registro</button></div>
+            <p className="footnote">Últimos 80 cambios locales de estado. Registro temporal, sin contraseñas ni tokens. No representa tráfico VPN.</p>
+            <div role="log" aria-live="off" style={{ maxHeight: 240, overflowY: 'auto' }}>
+              {events.length === 0 ? <p className="small-muted">Todavía no hay eventos registrados.</p> : events.map((event, index) => (
+                <div className="setting-row" key={`${event.at}-${index}`}><span className="technical">{event.at} · {event.category}</span><span className="small-muted">{event.message}</span></div>
+              ))}
+            </div>
+          </section>
           <p className="footnote">Última consulta local: {lastChecked?.toLocaleTimeString() ?? '—'}. Las métricas no verificadas se mantienen vacías.</p>
         </>}
 
         {section === 'settings' && <>
+          <ServerSelection authenticated={Boolean(account)} />
           <TrafficRules />
           <section className="panel preferences">
             <div className="section-top on-panel"><div><p className="kicker">PREFERENCIAS</p><h2>Interfaz y diagnóstico</h2></div></div>

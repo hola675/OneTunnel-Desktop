@@ -1,7 +1,7 @@
 //! 1VPN account login. Credentials and tokens remain exclusively in Rust memory.
 use crate::provider::{PublicAccountSummary, UserData};
 use serde::{Deserialize, Serialize};
-use std::sync::Mutex;
+use std::sync::{atomic::{AtomicU64, Ordering}, Mutex};
 
 const DOMAINS: [&str; 4] = ["1vpn.org", "1vpn.co", "onevpn.com", "cloudlogcdn.com"];
 const MAX_REPLY_BYTES: usize = 2 * 1024 * 1024;
@@ -9,6 +9,7 @@ const MAX_REPLY_BYTES: usize = 2 * 1024 * 1024;
 #[derive(Default)]
 pub struct AuthState {
     account: Mutex<Option<UserData>>,
+    generation: AtomicU64,
 }
 
 #[derive(Deserialize)]
@@ -34,11 +35,20 @@ impl AuthState {
             .map_err(|_| "Account state unavailable")?;
         Ok(guard.as_ref().map(UserData::summary))
     }
+    pub fn server_options(&self) -> Result<Vec<crate::provider::PublicServerOption>, String> {
+        let guard = self.account.lock().map_err(|_| "Account state unavailable")?;
+        Ok(guard.as_ref().map(UserData::server_options).unwrap_or_default())
+    }
+    /// Resolve server credentials only inside Rust; the UI receives no Reality secrets.
+    pub fn selected_server(&self, location_index: usize, server_index: usize) -> Result<crate::config::RealityServer, String> {
+        let guard = self.account.lock().map_err(|_| "Account state unavailable")?;
+        let account = guard.as_ref().ok_or("Authentication required")?;
+        account.to_reality_server(location_index, server_index).map_err(str::to_owned)
+    }
     pub fn logout(&self) -> Result<(), String> {
-        *self
-            .account
-            .lock()
-            .map_err(|_| "Account state unavailable")? = None;
+        let mut guard = self.account.lock().map_err(|_| "Account state unavailable")?;
+        self.generation.fetch_add(1, Ordering::SeqCst);
+        *guard = None;
         Ok(())
     }
 
@@ -64,9 +74,17 @@ impl AuthState {
             return Err("Invalid verification code".into());
         }
 
+        // A newer login/logout invalidates any earlier in-flight authentication.
+        let generation = {
+            let mut guard = self.account.lock().map_err(|_| "Account state unavailable")?;
+            let generation = self.generation.fetch_add(1, Ordering::SeqCst) + 1;
+            *guard = None;
+            generation
+        };
         // Never persist passwords or log request/response bodies.
         let client = reqwest::Client::builder()
             .timeout(std::time::Duration::from_secs(12))
+            .connect_timeout(std::time::Duration::from_secs(4))
             .redirect(reqwest::redirect::Policy::none())
             .build()
             .map_err(|_| "Cannot initialize secure HTTP client")?;
@@ -114,10 +132,11 @@ impl AuthState {
                     return Err("1VPN response contained no session token".into());
                 }
                 let summary = account.summary();
-                *self
-                    .account
-                    .lock()
-                    .map_err(|_| "Account state unavailable")? = Some(account);
+                let mut guard = self.account.lock().map_err(|_| "Account state unavailable")?;
+                if self.generation.load(Ordering::SeqCst) != generation {
+                    return Err("Authentication request superseded or cancelled".into());
+                }
+                *guard = Some(account);
                 return Ok(LoginResult::Authenticated { account: summary });
             }
             if serde_json::from_slice::<ApiError>(&bytes)
@@ -146,6 +165,14 @@ mod tests {
         let state = AuthState::default();
         assert!(state.summary().unwrap().is_none());
         assert!(state.logout().is_ok());
+    }
+    #[test]
+    fn logout_invalidates_pending_authentication_generation() {
+        let state = AuthState::default();
+        let pending = state.generation.fetch_add(1, Ordering::SeqCst) + 1;
+        state.logout().unwrap();
+        assert_ne!(state.generation.load(Ordering::SeqCst), pending);
+        assert!(state.summary().unwrap().is_none());
     }
     #[test]
     fn two_factor_response_contract() {

@@ -93,6 +93,9 @@ fn check_version(path: &Path) -> Result<String, String> {
     if !output.status.success() {
         return Err(format!("xray version exited with {}", output.status));
     }
+    if output.stdout.len() > 16 * 1024 || output.stderr.len() > 16 * 1024 {
+        return Err("Xray version output exceeded safety limit".into());
+    }
     let stdout = String::from_utf8_lossy(&output.stdout).trim().to_owned();
     if !stdout.starts_with("Xray ") {
         return Err("Unexpected version response".into());
@@ -106,6 +109,11 @@ mod tests {
     #[test]
     fn missing_executable_is_not_ready() {
         assert!(check_version(Path::new("does-not-exist-onetunnel-xray.exe")).is_err());
+    }
+    #[test]
+    fn invalid_runtime_path_never_reports_success() {
+        let missing = Path::new("missing-runtime-version-check.exe");
+        assert!(check_version(missing).is_err());
     }
     #[test]
     fn runtime_result_is_json_serializable() {

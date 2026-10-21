@@ -31,7 +31,7 @@ pub fn validate_server(server: &RealityServer) -> Result<(), &'static str> {
         || host.len() > 253
         || host
             .chars()
-            .any(|c| matches!(c, '/' | '\\' | '@' | ' ' | ':' | '\n'))
+            .any(|c| c.is_control() || matches!(c, '/' | '\\' | '@' | ' ' | ':'))
     {
         return Err("Invalid server address");
     }
@@ -67,7 +67,7 @@ pub fn validate_server(server: &RealityServer) -> Result<(), &'static str> {
         || server
             .server_name
             .chars()
-            .any(|c| matches!(c, '/' | '\\' | ' ' | ':' | '\n'))
+            .any(|c| c.is_control() || matches!(c, '/' | '\\' | ' ' | ':'))
     {
         return Err("Invalid Reality SNI");
     }
@@ -148,6 +148,26 @@ mod tests {
         let mut s = fixture();
         s.uuid = "invalid".into();
         assert!(build_config(&s, 10808).is_err());
+    }
+    #[test]
+    fn rejects_invalid_reality_public_key() {
+        let mut server = fixture();
+        server.public_key = "invalid".into();
+        assert!(build_config(&server, 10808).is_err());
+    }
+    #[test]
+    fn rejects_invalid_reality_short_id() {
+        let mut server = fixture();
+        server.short_id = "abc".into();
+        assert!(build_config(&server, 10808).is_err());
+    }
+    #[test]
+    fn configuration_contains_no_system_proxy_or_route_changes() {
+        let config = build_config(&fixture(), 10808).unwrap();
+        assert_eq!(config["inbounds"][0]["listen"], "127.0.0.1");
+        assert!(config.get("dns").is_none());
+        assert!(config.get("tun").is_none());
+        assert_eq!(config["outbounds"][0]["protocol"], "vless");
     }
     #[test]
     fn privileged_port_is_rejected() {
