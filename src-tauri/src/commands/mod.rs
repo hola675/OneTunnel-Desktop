@@ -49,6 +49,13 @@ pub fn get_account(
 }
 
 #[tauri::command]
+pub fn list_1vpn_servers(
+    auth: tauri::State<'_, crate::auth::AuthState>,
+) -> Result<Vec<crate::provider::PublicServerOption>, String> {
+    auth.server_options()
+}
+
+#[tauri::command]
 pub fn logout_1vpn(auth: tauri::State<'_, crate::auth::AuthState>) -> Result<(), String> {
     auth.logout()
 }
