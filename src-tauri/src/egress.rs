@@ -8,6 +8,7 @@ const TARGET_PORT: u16 = 443;
 #[derive(Debug, serde::Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct EgressProbe {
+    pub verification_level: &'static str,
     pub tcp_connected: bool,
     pub elapsed_ms: Option<u128>,
     pub target: &'static str,
@@ -47,8 +48,8 @@ fn connect_via_socks(port: u16) -> Result<u128, String> {
 
 pub fn probe(port: u16) -> EgressProbe {
     match connect_via_socks(port) {
-        Ok(elapsed_ms) => EgressProbe { tcp_connected: true, elapsed_ms: Some(elapsed_ms), target: TARGET_HOST, message: "Remote TCP CONNECT accepted; HTTPS and VPN exit not verified".into() },
-        Err(message) => EgressProbe { tcp_connected: false, elapsed_ms: None, target: TARGET_HOST, message },
+        Ok(elapsed_ms) => EgressProbe { verification_level: "remote_tcp_only", tcp_connected: true, elapsed_ms: Some(elapsed_ms), target: TARGET_HOST, message: "Remote TCP CONNECT accepted; HTTPS and VPN exit not verified".into() },
+        Err(message) => EgressProbe { verification_level: "unverified", tcp_connected: false, elapsed_ms: None, target: TARGET_HOST, message },
     }
 }
 
