@@ -39,9 +39,15 @@ pub async fn probe_remote_tcp(
     if status.pid.is_none() || !status.socks_ready {
         return Err("Owned Xray SOCKS5 listener is not ready".into());
     }
-    tauri::async_runtime::spawn_blocking(|| crate::egress::probe(crate::engine::DEFAULT_SOCKS_PORT))
+    let pid = status.pid;
+    let result = tauri::async_runtime::spawn_blocking(|| crate::egress::probe(crate::engine::DEFAULT_SOCKS_PORT))
         .await
-        .map_err(|_| "Remote TCP probe failed to complete".into())
+        .map_err(|_| "Remote TCP probe failed to complete".to_string())?;
+    let current = engine.status()?;
+    if current.pid != pid || !current.socks_ready {
+        return Err("Xray changed or stopped during the remote probe; result discarded".into());
+    }
+    Ok(result)
 }
 
 #[tauri::command]
