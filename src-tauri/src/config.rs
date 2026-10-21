@@ -162,6 +162,14 @@ mod tests {
         assert!(build_config(&server, 10808).is_err());
     }
     #[test]
+    fn configuration_contains_no_system_proxy_or_route_changes() {
+        let config = build_config(&fixture(), 10808).unwrap();
+        assert_eq!(config["inbounds"][0]["listen"], "127.0.0.1");
+        assert!(config.get("dns").is_none());
+        assert!(config.get("tun").is_none());
+        assert_eq!(config["outbounds"][0]["protocol"], "vless");
+    }
+    #[test]
     fn privileged_port_is_rejected() {
         assert!(build_config(&fixture(), 80).is_err());
     }
