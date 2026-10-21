@@ -3,6 +3,7 @@ import { invoke } from '@tauri-apps/api/core'
 import './App.css'
 import TrafficRules from './TrafficRules'
 
+type DiagnosticEvent = { at: string; category: 'motor' | 'sistema' | 'cuenta'; message: string }
 type Account = { username: string; isPremium: boolean; locationCount: number }
 type LoginResult = { status: 'authenticated'; account: Account } | { status: 'requires_2fa' }
 type EngineStatus = {
@@ -24,6 +25,12 @@ type Preference = { refreshInterval: number; compact: boolean; notifications: bo
 const initialPreferences: Preference = { refreshInterval: 2500, compact: false, notifications: true }
 
 export default function App() {
+  const pollingInFlight = useRef(false)
+  const lastEngineEvent = useRef<string | null>(null)
+  const [events, setEvents] = useState<DiagnosticEvent[]>([])
+  const recordEvent = (category: DiagnosticEvent['category'], message: string) => {
+    setEvents(previous => [{ at: new Date().toLocaleTimeString(), category, message }, ...previous].slice(0, 80))
+  }
   const [section, setSection] = useState<Section>('overview')
   const [preferences, setPreferences] = useState<Preference>(initialPreferences)
   const [appInfo, setAppInfo] = useState<AppInfo | null>(null)
@@ -41,12 +48,25 @@ export default function App() {
   const [lastChecked, setLastChecked] = useState<Date | null>(null)
 
   const readEngine = async () => {
+    if (pollingInFlight.current) return
+    pollingInFlight.current = true
     try {
       const status = await invoke<EngineStatus>('get_engine_status')
       setEngine(status)
       setLastChecked(new Date())
+      const signature = [status.phase, status.pid ?? '-', status.socksReady, status.message].join('|')
+      if (lastEngineEvent.current !== signature) {
+        lastEngineEvent.current = signature
+        recordEvent('motor', `${status.phase} · SOCKS5: ${status.socksReady ? 'disponible' : 'no disponible'} · ${status.message}`)
+      }
     } catch {
+      if (lastEngineEvent.current !== 'unreachable') {
+        lastEngineEvent.current = 'unreachable'
+        recordEvent('sistema', 'No se pudo consultar el estado del motor.')
+      }
       setSystemError('No se pudo consultar el estado del motor.')
+    } finally {
+      pollingInFlight.current = false
     }
   }
   const checkRuntime = async () => {
@@ -250,6 +270,15 @@ export default function App() {
               <div className="separator"/><span className="technical">IP de salida: — · Latencia: —</span>
             </article>
           </div>
+          <section className="panel preferences" aria-label="Registro de eventos de diagnóstico">
+            <div className="section-top on-panel"><h2>Registro de eventos</h2><button type="button" className="text-action" onClick={() => setEvents([])} disabled={events.length === 0}>Limpiar registro</button></div>
+            <p className="footnote">Últimos 80 cambios locales de estado. Registro temporal, sin contraseñas ni tokens. No representa tráfico VPN.</p>
+            <div role="log" aria-live="off" style={{ maxHeight: 240, overflowY: 'auto' }}>
+              {events.length === 0 ? <p className="small-muted">Todavía no hay eventos registrados.</p> : events.map((event, index) => (
+                <div className="setting-row" key={`${event.at}-${index}`}><span className="technical">{event.at} · {event.category}</span><span className="small-muted">{event.message}</span></div>
+              ))}
+            </div>
+          </section>
           <p className="footnote">Última consulta local: {lastChecked?.toLocaleTimeString() ?? '—'}. Las métricas no verificadas se mantienen vacías.</p>
         </>}
 
