@@ -101,6 +101,11 @@ impl Engine {
         if !executable.is_file() || !config.is_file() {
             return Err("Verified executable and configuration files are required".into());
         }
+        // Never allow a directory or missing file to masquerade as a runtime configuration.
+        let config_meta = std::fs::metadata(config).map_err(|_| "Cannot inspect Xray configuration")?;
+        if !config_meta.is_file() || config_meta.len() == 0 || config_meta.len() > 1024 * 1024 {
+            return Err("Xray configuration must be a nonempty file below 1 MiB".into());
+        }
         // Serialize start/stop before inspecting ownership and binding the port.
         let mut guard = self.inner.lock().map_err(|_| "Engine state poisoned")?;
         if let Some(child) = guard.child.as_mut() {
