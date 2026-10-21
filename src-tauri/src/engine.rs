@@ -202,6 +202,16 @@ mod tests {
         assert!(status.pid.is_none());
     }
     #[test]
+    fn stop_is_idempotent_and_never_claims_a_ready_listener() {
+        let engine = Engine::default();
+        for _ in 0..3 {
+            let status = engine.stop().unwrap();
+            assert!(matches!(status.phase, EnginePhase::Disconnected));
+            assert!(status.pid.is_none());
+            assert!(!status.socks_ready);
+        }
+    }
+    #[test]
     fn missing_runtime_fails_closed() {
         let engine = Engine::default();
         assert!(engine
