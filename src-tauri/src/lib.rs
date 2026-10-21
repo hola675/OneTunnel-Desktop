@@ -2,6 +2,7 @@ mod auth;
 mod capture;
 mod commands;
 mod config;
+mod diagnostics;
 mod engine;
 mod egress;
 mod health;
