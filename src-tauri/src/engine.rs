@@ -83,6 +83,15 @@ impl Engine {
                 Ok(None) => {}
             }
         }
+        if guard.child.is_some() && matches!(guard.phase, EnginePhase::Starting | EnginePhase::Running) {
+            if crate::health::socks5_ready(DEFAULT_SOCKS_PORT).is_ok() {
+                guard.phase = EnginePhase::Running;
+                guard.message = "Local SOCKS5 handshake verified; remote VPN egress NOT verified".into();
+            } else if matches!(guard.phase, EnginePhase::Running) {
+                guard.phase = EnginePhase::Starting;
+                guard.message = "Local SOCKS5 handshake lost; remote VPN egress NOT verified".into();
+            }
+        }
         Ok(Self::status_locked(&guard))
     }
 
