@@ -51,6 +51,14 @@ mod tests {
     }
 
     #[test]
+    fn absent_listener_is_rejected() {
+        let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).unwrap();
+        let port = listener.local_addr().unwrap().port();
+        drop(listener);
+        assert!(socks5_ready(port).is_err());
+    }
+
+    #[test]
     fn malformed_response_is_rejected() {
         let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).unwrap();
         let port = listener.local_addr().unwrap().port();
