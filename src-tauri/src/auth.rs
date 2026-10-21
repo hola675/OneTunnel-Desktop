@@ -78,6 +78,7 @@ impl AuthState {
         // Never persist passwords or log request/response bodies.
         let client = reqwest::Client::builder()
             .timeout(std::time::Duration::from_secs(12))
+            .connect_timeout(std::time::Duration::from_secs(4))
             .redirect(reqwest::redirect::Policy::none())
             .build()
             .map_err(|_| "Cannot initialize secure HTTP client")?;
