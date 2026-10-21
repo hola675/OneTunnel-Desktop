@@ -150,6 +150,18 @@ mod tests {
         assert!(build_config(&s, 10808).is_err());
     }
     #[test]
+    fn rejects_invalid_reality_public_key() {
+        let mut server = fixture();
+        server.public_key = "invalid".into();
+        assert!(build_config(&server, 10808).is_err());
+    }
+    #[test]
+    fn rejects_invalid_reality_short_id() {
+        let mut server = fixture();
+        server.short_id = "abc".into();
+        assert!(build_config(&server, 10808).is_err());
+    }
+    #[test]
     fn privileged_port_is_rejected() {
         assert!(build_config(&fixture(), 80).is_err());
     }
