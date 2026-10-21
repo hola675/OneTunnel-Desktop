@@ -157,6 +157,14 @@ mod tests {
         assert!(state.logout().is_ok());
     }
     #[test]
+    fn logout_invalidates_pending_authentication_generation() {
+        let state = AuthState::default();
+        let pending = state.generation.fetch_add(1, Ordering::SeqCst) + 1;
+        state.logout().unwrap();
+        assert_ne!(state.generation.load(Ordering::SeqCst), pending);
+        assert!(state.summary().unwrap().is_none());
+    }
+    #[test]
     fn two_factor_response_contract() {
         let response = r#"{"error":"verification required","code":1001}"#;
         let parsed: ApiError = serde_json::from_str(response).unwrap();
