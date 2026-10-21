@@ -82,8 +82,15 @@ pub fn list_1vpn_servers(
 }
 
 #[tauri::command]
-pub fn logout_1vpn(auth: tauri::State<'_, crate::auth::AuthState>) -> Result<(), String> {
-    auth.logout()
+pub fn logout_1vpn(
+    auth: tauri::State<'_, crate::auth::AuthState>,
+    engine: tauri::State<'_, crate::engine::Engine>,
+) -> Result<(), String> {
+    // Invalidate the session first, even if the owned Xray process cannot be stopped.
+    // Never leave a valid authenticated session after an attempted logout.
+    auth.logout()?;
+    engine.stop()?;
+    Ok(())
 }
 
 #[tauri::command]
