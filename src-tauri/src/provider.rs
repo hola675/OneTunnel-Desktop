@@ -44,7 +44,37 @@ pub struct PublicAccountSummary {
     pub location_count: usize,
 }
 
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PublicServerOption {
+    pub location_index: usize,
+    pub server_index: usize,
+    pub country: String,
+    pub city: Option<String>,
+    pub premium: bool,
+    pub eligible: bool,
+    pub configured: bool,
+}
+
 impl UserData {
+    /// Safe UI catalog: never disclose credentials, tokens or raw Reality keys.
+    /// Eligibility is derived from the authenticated account.
+    pub fn server_options(&self) -> Vec<PublicServerOption> {
+        self.locations.iter().enumerate().flat_map(|(location_index, location)| {
+            location.servers.as_deref().unwrap_or(&[]).iter().enumerate().map(move |(server_index, _)| {
+                PublicServerOption {
+                    location_index,
+                    server_index,
+                    country: location.country.clone(),
+                    city: location.city.clone(),
+                    premium: location.is_premium,
+                    eligible: !location.is_premium || self.is_premium,
+                    configured: self.to_reality_server(location_index, server_index).is_ok(),
+                }
+            })
+        }).collect()
+    }
+
     pub fn summary(&self) -> PublicAccountSummary {
         PublicAccountSummary {
             username: self.username.clone(),
