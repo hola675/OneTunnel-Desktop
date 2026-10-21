@@ -1,7 +1,7 @@
 //! 1VPN account login. Credentials and tokens remain exclusively in Rust memory.
 use crate::provider::{PublicAccountSummary, UserData};
 use serde::{Deserialize, Serialize};
-use std::sync::Mutex;
+use std::sync::{atomic::{AtomicU64, Ordering}, Mutex};
 
 const DOMAINS: [&str; 4] = ["1vpn.org", "1vpn.co", "onevpn.com", "cloudlogcdn.com"];
 const MAX_REPLY_BYTES: usize = 2 * 1024 * 1024;
@@ -9,6 +9,7 @@ const MAX_REPLY_BYTES: usize = 2 * 1024 * 1024;
 #[derive(Default)]
 pub struct AuthState {
     account: Mutex<Option<UserData>>,
+    generation: AtomicU64,
 }
 
 #[derive(Deserialize)]
@@ -39,6 +40,7 @@ impl AuthState {
         Ok(guard.as_ref().map(UserData::server_options).unwrap_or_default())
     }
     pub fn logout(&self) -> Result<(), String> {
+        self.generation.fetch_add(1, Ordering::SeqCst);
         *self
             .account
             .lock()
@@ -68,6 +70,8 @@ impl AuthState {
             return Err("Invalid verification code".into());
         }
 
+        // A newer login/logout invalidates any earlier in-flight authentication.
+        let generation = self.generation.fetch_add(1, Ordering::SeqCst) + 1;
         // Never persist passwords or log request/response bodies.
         let client = reqwest::Client::builder()
             .timeout(std::time::Duration::from_secs(12))
@@ -118,10 +122,11 @@ impl AuthState {
                     return Err("1VPN response contained no session token".into());
                 }
                 let summary = account.summary();
-                *self
-                    .account
-                    .lock()
-                    .map_err(|_| "Account state unavailable")? = Some(account);
+                let mut guard = self.account.lock().map_err(|_| "Account state unavailable")?;
+                if self.generation.load(Ordering::SeqCst) != generation {
+                    return Err("Authentication request superseded or cancelled".into());
+                }
+                *guard = Some(account);
                 return Ok(LoginResult::Authenticated { account: summary });
             }
             if serde_json::from_slice::<ApiError>(&bytes)
