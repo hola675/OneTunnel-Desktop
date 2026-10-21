@@ -24,6 +24,7 @@ pub fn run() {
             commands::get_engine_status,
             commands::probe_remote_tcp,
             commands::stop_engine,
+            commands::connect_1vpn,
             commands::login_1vpn,
             commands::get_account,
             commands::list_1vpn_servers,
