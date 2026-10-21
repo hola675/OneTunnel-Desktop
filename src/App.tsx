@@ -14,7 +14,7 @@ type EngineStatus = {
   socksReady: boolean
   message: string
 }
-type EgressProbe = { verificationLevel: 'remote_tcp_only' | 'unverified'; targetPort: number; tcpConnected: boolean; elapsedMs: number | null; target: string; message: string }
+type EgressProbe = { verificationLevel: 'remote_tcp_only' | 'unverified'; targetPort: number; httpsVerified: boolean; tcpConnected: boolean; elapsedMs: number | null; target: string; message: string }
 type RuntimeCheck = {
   ready: boolean
   executable: string | null
@@ -167,7 +167,7 @@ export default function App() {
   const phase = engine?.phase ?? 'disconnected'
   const socksReady = Boolean(engine?.socksReady)
   const runtimeReady = Boolean(runtime?.ready)
-  const connectionVerified = false // No HTTPS egress verification IPC exists yet.
+  const connectionVerified = false // TCP CONNECT is not HTTPS or VPN egress verification.
   const connectionLabel = phase === 'error' ? 'Error del motor' :
     phase === 'running' ? 'Motor en ejecución (sin verificar)' :
     phase === 'starting' ? 'Iniciando motor' : 'Desconectado'
