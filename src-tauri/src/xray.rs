@@ -93,6 +93,9 @@ fn check_version(path: &Path) -> Result<String, String> {
     if !output.status.success() {
         return Err(format!("xray version exited with {}", output.status));
     }
+    if output.stdout.len() > 16 * 1024 || output.stderr.len() > 16 * 1024 {
+        return Err("Xray version output exceeded safety limit".into());
+    }
     let stdout = String::from_utf8_lossy(&output.stdout).trim().to_owned();
     if !stdout.starts_with("Xray ") {
         return Err("Unexpected version response".into());
