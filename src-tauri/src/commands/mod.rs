@@ -169,3 +169,8 @@ pub fn preview_saved_traffic_policy(
 pub fn get_capture_capability() -> crate::capture::CaptureCapability {
     crate::capture::capability()
 }
+
+#[tauri::command]
+pub fn get_diagnostic_events(logs: tauri::State<'_, crate::diagnostics::Diagnostics>) -> Result<Vec<crate::diagnostics::Event>, String> {
+    logs.recent()
+}
