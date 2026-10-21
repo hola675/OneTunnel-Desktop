@@ -21,11 +21,11 @@ export default function ServerSelection({ authenticated }: Props) {
   const [selected, setSelected] = useState<string>('')
   const [onlyAvailable, setOnlyAvailable] = useState(true)
   const load = async () => {
-    if (!authenticated) { setServers([]); return }
+    if (!authenticated) { setServers([]); setSelected(''); return }
     setBusy(true)
     setError(null)
     try { setServers(await invoke<Server[]>('list_1vpn_servers')) }
-    catch { setError('No fue posible consultar los servidores de la sesión.') }
+    catch { setServers([]); setSelected(''); setError('No fue posible consultar los servidores de la sesión.') }
     finally { setBusy(false) }
   }
   useEffect(() => { void load() }, [authenticated]) // eslint-disable-line react-hooks/exhaustive-deps
