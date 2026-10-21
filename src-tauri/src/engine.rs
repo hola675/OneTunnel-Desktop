@@ -92,16 +92,24 @@ impl Engine {
         if !executable.is_file() || !config.is_file() {
             return Err("Verified executable and configuration files are required".into());
         }
+        // Serialize start/stop before inspecting ownership and binding the port.
+        let mut guard = self.inner.lock().map_err(|_| "Engine state poisoned")?;
+        if let Some(child) = guard.child.as_mut() {
+            match child.try_wait() {
+                Ok(None) => return Err("An Xray process is already owned by OneTunnel".into()),
+                Ok(Some(_)) => {
+                    guard.child = None;
+                    guard.config_path = None;
+                }
+                Err(error) => return Err(format!("Cannot inspect existing Xray process: {error}")),
+            }
+        }
         // Fail closed when the default SOCKS port is already occupied.
         let address = SocketAddr::new(IpAddr::V4(SOCKS_HOST), DEFAULT_SOCKS_PORT);
         let listener = TcpListener::bind(address)
             .map_err(|e| format!("Local SOCKS port is unavailable: {e}"))?;
         drop(listener);
 
-        let mut guard = self.inner.lock().map_err(|_| "Engine state poisoned")?;
-        if guard.child.is_some() {
-            return Err("An Xray process is already owned by OneTunnel".into());
-        }
         guard.phase = EnginePhase::Starting;
         let child = match Command::new(executable)
             .arg("run")
@@ -121,8 +129,9 @@ impl Engine {
         };
         guard.config_path = Some(config.to_path_buf());
         guard.child = Some(child);
-        guard.phase = EnginePhase::Running;
-        guard.message = "Xray launched; tunnel NOT yet verified".into();
+        // Starting is intentional: process creation is not SOCKS or VPN verification.
+        guard.phase = EnginePhase::Starting;
+        guard.message = "Xray launched; SOCKS and VPN tunnel NOT yet verified".into();
         Ok(Self::status_locked(&guard))
     }
 
