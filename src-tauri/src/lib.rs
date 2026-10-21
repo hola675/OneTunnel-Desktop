@@ -3,6 +3,7 @@ mod capture;
 mod commands;
 mod config;
 mod engine;
+mod egress;
 mod health;
 mod integrity;
 mod policy;
@@ -21,6 +22,7 @@ pub fn run() {
             commands::get_app_info,
             commands::inspect_xray_runtime,
             commands::get_engine_status,
+            commands::probe_remote_tcp,
             commands::stop_engine,
             commands::login_1vpn,
             commands::get_account,
