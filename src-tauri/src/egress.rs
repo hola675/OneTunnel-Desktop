@@ -68,6 +68,7 @@ mod tests {
         let result = probe(port);
         assert!(!result.tcp_connected);
         assert_eq!(result.verification_level, "unverified");
+        assert!(!result.https_verified);
         assert!(result.elapsed_ms.is_none());
     }
     #[test]
@@ -88,6 +89,7 @@ mod tests {
         let result = probe(port);
         assert!(result.tcp_connected);
         assert_eq!(result.verification_level, "remote_tcp_only");
+        assert!(!result.https_verified);
         worker.join().unwrap();
     }
     #[test]
