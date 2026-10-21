@@ -287,6 +287,24 @@ mod tests {
         }
     }
     #[test]
+    fn ipv6_loopback_is_always_direct() {
+        assert_eq!(
+            evaluate(&[rule("*", RouteAction::Block)], RouteAction::Block, &meta("::1"))
+                .unwrap().action,
+            RouteAction::Direct
+        );
+    }
+    #[test]
+    fn disabled_rule_does_not_override_default() {
+        let mut disabled = rule("*", RouteAction::Block);
+        disabled.enabled = false;
+        assert_eq!(
+            evaluate(&[disabled], RouteAction::Direct, &meta("example.com"))
+                .unwrap().action,
+            RouteAction::Direct
+        );
+    }
+    #[test]
     fn reject_invalid_port_range() {
         let mut r = rule("*", RouteAction::Tunnel);
         r.port_start = Some(9000);
