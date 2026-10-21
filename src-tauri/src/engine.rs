@@ -184,6 +184,12 @@ mod tests {
         ));
     }
     #[test]
+    fn initial_status_never_claims_socks_ready() {
+        let status = Engine::default().status().unwrap();
+        assert!(!status.socks_ready);
+        assert!(status.pid.is_none());
+    }
+    #[test]
     fn missing_runtime_fails_closed() {
         let engine = Engine::default();
         assert!(engine
