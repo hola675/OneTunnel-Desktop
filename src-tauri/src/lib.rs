@@ -29,6 +29,7 @@ pub fn run() {
         .manage(policy::PolicyStore::default())
         .invoke_handler(tauri::generate_handler![
             commands::get_app_info,
+            commands::get_diagnostic_events,
             commands::inspect_xray_runtime,
             commands::get_engine_status,
             commands::probe_remote_tcp,
