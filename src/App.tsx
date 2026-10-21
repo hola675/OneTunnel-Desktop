@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { invoke } from '@tauri-apps/api/core'
 import './App.css'
 import TrafficRules from './TrafficRules'
+import ServerSelection from './ServerSelection'
 
 type DiagnosticEvent = { at: string; category: 'motor' | 'sistema' | 'cuenta'; message: string }
 type Account = { username: string; isPremium: boolean; locationCount: number }
@@ -283,6 +284,7 @@ export default function App() {
         </>}
 
         {section === 'settings' && <>
+          <ServerSelection authenticated={Boolean(account)} />
           <TrafficRules />
           <section className="panel preferences">
             <div className="section-top on-panel"><div><p className="kicker">PREFERENCIAS</p><h2>Interfaz y diagnóstico</h2></div></div>
