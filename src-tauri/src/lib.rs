@@ -7,6 +7,7 @@ mod health;
 mod integrity;
 mod policy;
 mod provider;
+mod recovery;
 mod routing;
 mod xray;
 
