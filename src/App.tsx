@@ -14,6 +14,7 @@ type EngineStatus = {
   socksReady: boolean
   message: string
 }
+type EgressProbe = { tcpConnected: boolean; elapsedMs: number | null; target: string; message: string }
 type RuntimeCheck = {
   ready: boolean
   executable: string | null
@@ -46,6 +47,8 @@ export default function App() {
   const [refreshBusy, setRefreshBusy] = useState(false)
   const [stopBusy, setStopBusy] = useState(false)
   const [enginePollFailures, setEnginePollFailures] = useState(0)
+  const [remoteProbe, setRemoteProbe] = useState<EgressProbe | null>(null)
+  const [remoteProbeBusy, setRemoteProbeBusy] = useState(false)
   const [loginError, setLoginError] = useState<string | null>(null)
   const [systemError, setSystemError] = useState<string | null>(null)
   const [lastChecked, setLastChecked] = useState<Date | null>(null)
@@ -57,6 +60,7 @@ export default function App() {
       const status = await invoke<EngineStatus>('get_engine_status')
       setEngine(status)
       setEnginePollFailures(0)
+      if (!status.socksReady) setRemoteProbe(null)
       setSystemError(previous => previous === 'No se pudo consultar el estado del motor.' ? null : previous)
       setLastChecked(new Date())
       const signature = [status.phase, status.pid ?? '-', status.socksReady, status.message].join('|')
@@ -67,6 +71,7 @@ export default function App() {
     } catch {
       setEnginePollFailures(previous => previous + 1)
       setEngine(null)
+      setRemoteProbe(null)
       if (lastEngineEvent.current !== 'unreachable') {
         lastEngineEvent.current = 'unreachable'
         recordEvent('sistema', 'No se pudo consultar el estado del motor.')
@@ -140,11 +145,20 @@ export default function App() {
     } catch { setLoginError('No se pudo cerrar la sesión.') }
   }
 
+  const testRemote = async () => {
+    if (remoteProbeBusy || !socksReady) return
+    setRemoteProbeBusy(true)
+    setRemoteProbe(null)
+    try { setRemoteProbe(await invoke<EgressProbe>('probe_remote_tcp')) }
+    catch { setSystemError('No se pudo realizar la prueba TCP a través de SOCKS5.') }
+    finally { setRemoteProbeBusy(false) }
+  }
   const stopEngine = async () => {
     if (stopBusy) return
     setStopBusy(true)
     try {
       setEngine(await invoke<EngineStatus>('stop_engine'))
+      setRemoteProbe(null)
       recordEvent('motor', 'Desconexión manual solicitada; proceso Xray propio detenido.')
     } catch { setSystemError('No se pudo detener el motor Xray. Comprueba el diagnóstico.') }
     finally { setStopBusy(false) }
@@ -288,6 +302,11 @@ export default function App() {
               <div className="separator"/><span className="technical">IP de salida: — · Latencia: —</span>
             </article>
           </div>
+          <section className="panel preferences" aria-label="Prueba de salida TCP remota">
+            <div className="section-top on-panel"><h2>Conectividad remota por SOCKS5</h2><button type="button" className="text-action" disabled={!socksReady || remoteProbeBusy} onClick={() => void testRemote()}>{remoteProbeBusy ? 'Probando…' : 'Probar conexión TCP ↗'}</button></div>
+            <p className="panel-subtitle">Prueba manual hacia un destino HTTPS público, usando SOCKS5 local. Confirma únicamente la apertura TCP: no verifica TLS, HTTPS ni la identidad de salida VPN.</p>
+            {remoteProbe && <p className={remoteProbe.tcpConnected ? 'message info-message' : 'message error-message'} role="status">{remoteProbe.tcpConnected ? 'TCP remoto accesible' : 'TCP remoto no accesible'} · {remoteProbe.target}:443 · {remoteProbe.elapsedMs === null ? 'Sin tiempo medido' : `${remoteProbe.elapsedMs} ms`} · {remoteProbe.message}</p>}
+          </section>
           <section className="panel preferences" aria-label="Registro de eventos de diagnóstico">
             <div className="section-top on-panel"><h2>Registro de eventos</h2><button type="button" className="text-action" onClick={() => setEvents([])} disabled={events.length === 0}>Limpiar registro</button></div>
             <p className="footnote">Últimos 80 cambios locales de estado. Registro temporal, sin contraseñas ni tokens. No representa tráfico VPN.</p>
