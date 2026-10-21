@@ -45,6 +45,7 @@ export default function App() {
   const [loginBusy, setLoginBusy] = useState(false)
   const [refreshBusy, setRefreshBusy] = useState(false)
   const [stopBusy, setStopBusy] = useState(false)
+  const [enginePollFailures, setEnginePollFailures] = useState(0)
   const [loginError, setLoginError] = useState<string | null>(null)
   const [systemError, setSystemError] = useState<string | null>(null)
   const [lastChecked, setLastChecked] = useState<Date | null>(null)
@@ -55,6 +56,8 @@ export default function App() {
     try {
       const status = await invoke<EngineStatus>('get_engine_status')
       setEngine(status)
+      setEnginePollFailures(0)
+      setSystemError(previous => previous === 'No se pudo consultar el estado del motor.' ? null : previous)
       setLastChecked(new Date())
       const signature = [status.phase, status.pid ?? '-', status.socksReady, status.message].join('|')
       if (lastEngineEvent.current !== signature) {
@@ -62,6 +65,8 @@ export default function App() {
         recordEvent('motor', `${status.phase} · SOCKS5: ${status.socksReady ? 'disponible' : 'no disponible'} · ${status.message}`)
       }
     } catch {
+      setEnginePollFailures(previous => previous + 1)
+      setEngine(null)
       if (lastEngineEvent.current !== 'unreachable') {
         lastEngineEvent.current = 'unreachable'
         recordEvent('sistema', 'No se pudo consultar el estado del motor.')
@@ -198,6 +203,7 @@ export default function App() {
           </div>
         </header>
 
+        {enginePollFailures >= 2 && <div role="status" className="message error-message">Se ha perdido la comunicación con el motor ({enginePollFailures} consultas fallidas). No se puede confirmar el estado de la conexión. La aplicación seguirá comprobándolo.</div>}
         {systemError && <div role="alert" className="message error-message">{systemError}<button type="button" onClick={() => setSystemError(null)} aria-label="Cerrar aviso">×</button></div>}
 
         {section === 'overview' && <>
