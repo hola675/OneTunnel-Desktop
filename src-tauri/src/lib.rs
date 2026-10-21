@@ -22,6 +22,7 @@ pub fn run() {
             commands::get_engine_status,
             commands::login_1vpn,
             commands::get_account,
+            commands::list_1vpn_servers,
             commands::logout_1vpn,
             commands::preview_traffic_rule,
             commands::get_traffic_policy,
