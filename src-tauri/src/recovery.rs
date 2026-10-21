@@ -5,6 +5,11 @@ use std::time::Duration;
 pub const MAX_RETRIES: u32 = 5;
 pub const STABLE_RESET_SECS: u64 = 120;
 
+/// A deliberate user disconnect must never trigger automatic recovery.
+pub fn may_recover(user_requested_disconnect: bool, authenticated: bool, server_valid: bool) -> bool {
+    !user_requested_disconnect && authenticated && server_valid
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum RecoveryAction {
     RetryAfter(Duration),
@@ -28,6 +33,13 @@ pub fn should_reset_failures(verified_duration: Duration) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn manual_disconnect_cancels_recovery() {
+        assert!(!may_recover(true, true, true));
+        assert!(!may_recover(false, false, true));
+        assert!(!may_recover(false, true, false));
+        assert!(may_recover(false, true, true));
+    }
     #[test]
     fn retry_delay_is_bounded() {
         assert_eq!(next_action(0), RecoveryAction::RetryAfter(Duration::from_secs(1)));
