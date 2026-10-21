@@ -40,11 +40,9 @@ impl AuthState {
         Ok(guard.as_ref().map(UserData::server_options).unwrap_or_default())
     }
     pub fn logout(&self) -> Result<(), String> {
+        let mut guard = self.account.lock().map_err(|_| "Account state unavailable")?;
         self.generation.fetch_add(1, Ordering::SeqCst);
-        *self
-            .account
-            .lock()
-            .map_err(|_| "Account state unavailable")? = None;
+        *guard = None;
         Ok(())
     }
 
