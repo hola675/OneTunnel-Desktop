@@ -141,7 +141,7 @@ impl Engine {
         // Starting is intentional: process creation is not SOCKS or VPN verification.
         guard.phase = EnginePhase::Starting;
         guard.message = "Xray launched; SOCKS and VPN tunnel NOT yet verified".into();
-        Ok(Self::status_locked(&guard))
+        Ok(Self::status_locked(&guard, false))
     }
 
     pub fn stop(&self) -> Result<EngineStatus, String> {
@@ -160,7 +160,7 @@ impl Engine {
         guard.config_path = None;
         guard.phase = EnginePhase::Disconnected;
         guard.message = "Xray stopped".into();
-        Ok(Self::status_locked(&guard))
+        Ok(Self::status_locked(&guard, false))
     }
 }
 
