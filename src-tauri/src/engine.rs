@@ -218,7 +218,7 @@ mod tests {
     }
     #[test]
     fn empty_configuration_cannot_start_engine() {
-        let path = std::env::temp_dir().join(format!("onetunnel-empty-{}.json", std::process::id()));
+        let path = std::env::temp_dir().join(format!("onetunnel-empty-{}-{:?}.json", std::process::id(), std::thread::current().id()));
         std::fs::write(&path, b"").unwrap();
         let result = Engine::default().start(std::env::current_exe().unwrap().as_path(), &path);
         let _ = std::fs::remove_file(&path);
