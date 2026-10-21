@@ -31,7 +31,7 @@ pub fn validate_server(server: &RealityServer) -> Result<(), &'static str> {
         || host.len() > 253
         || host
             .chars()
-            .any(|c| matches!(c, '/' | '\\' | '@' | ' ' | ':' | '\n'))
+            .any(|c| c.is_control() || matches!(c, '/' | '\\' | '@' | ' ' | ':'))
     {
         return Err("Invalid server address");
     }
@@ -67,7 +67,7 @@ pub fn validate_server(server: &RealityServer) -> Result<(), &'static str> {
         || server
             .server_name
             .chars()
-            .any(|c| matches!(c, '/' | '\\' | ' ' | ':' | '\n'))
+            .any(|c| c.is_control() || matches!(c, '/' | '\\' | ' ' | ':'))
     {
         return Err("Invalid Reality SNI");
     }
