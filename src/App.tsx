@@ -44,6 +44,7 @@ export default function App() {
   const [requires2fa, setRequires2fa] = useState(false)
   const [loginBusy, setLoginBusy] = useState(false)
   const [refreshBusy, setRefreshBusy] = useState(false)
+  const [stopBusy, setStopBusy] = useState(false)
   const [loginError, setLoginError] = useState<string | null>(null)
   const [systemError, setSystemError] = useState<string | null>(null)
   const [lastChecked, setLastChecked] = useState<Date | null>(null)
@@ -134,6 +135,16 @@ export default function App() {
     } catch { setLoginError('No se pudo cerrar la sesión.') }
   }
 
+  const stopEngine = async () => {
+    if (stopBusy) return
+    setStopBusy(true)
+    try {
+      setEngine(await invoke<EngineStatus>('stop_engine'))
+      recordEvent('motor', 'Desconexión manual solicitada; proceso Xray propio detenido.')
+    } catch { setSystemError('No se pudo detener el motor Xray. Comprueba el diagnóstico.') }
+    finally { setStopBusy(false) }
+  }
+
   const phase = engine?.phase ?? 'disconnected'
   const socksReady = Boolean(engine?.socksReady)
   const runtimeReady = Boolean(runtime?.ready)
@@ -197,8 +208,8 @@ export default function App() {
               <p>Conexión VLESS/Reality a través de un proxy SOCKS5 local. No modifica las rutas de Windows.</p>
             </div>
             <div className="hero-action">
-              <button type="button" className="primary-button" disabled title="Requiere conexión y verificación HTTPS del túnel">Conectar <span aria-hidden="true">↗</span></button>
-              <span>Disponible al completar la validación de red</span>
+              {engine?.pid != null ? <button type="button" className="primary-button" onClick={() => void stopEngine()} disabled={stopBusy}>{stopBusy ? 'Deteniendo…' : 'Desconectar motor'} <span aria-hidden="true">■</span></button> : <button type="button" className="primary-button" disabled title="Requiere conexión y verificación HTTPS del túnel">Conectar <span aria-hidden="true">↗</span></button>}
+              <span>{engine?.pid != null ? 'Detiene solo Xray administrado por OneTunnel; no cambia Proxifier.' : 'Disponible al completar la validación de red'}</span>
             </div>
           </section>
 
