@@ -34,6 +34,10 @@ impl AuthState {
             .map_err(|_| "Account state unavailable")?;
         Ok(guard.as_ref().map(UserData::summary))
     }
+    pub fn server_options(&self) -> Result<Vec<crate::provider::PublicServerOption>, String> {
+        let guard = self.account.lock().map_err(|_| "Account state unavailable")?;
+        Ok(guard.as_ref().map(UserData::server_options).unwrap_or_default())
+    }
     pub fn logout(&self) -> Result<(), String> {
         *self
             .account
