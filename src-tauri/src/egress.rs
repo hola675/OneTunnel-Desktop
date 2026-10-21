@@ -52,7 +52,7 @@ fn connect_via_socks(port: u16) -> Result<u128, String> {
 pub fn probe(port: u16) -> EgressProbe {
     match connect_via_socks(port) {
         Ok(elapsed_ms) => EgressProbe { verification_level: "remote_tcp_only", target_port: TARGET_PORT, https_verified: false, tcp_connected: true, elapsed_ms: Some(elapsed_ms), target: TARGET_HOST, message: "Remote TCP CONNECT accepted; HTTPS and VPN exit not verified".into() },
-        Err(message) => EgressProbe { verification_level: "unverified", target_port: TARGET_PORT, tcp_connected: false, elapsed_ms: None, target: TARGET_HOST, message },
+        Err(message) => EgressProbe { verification_level: "unverified", target_port: TARGET_PORT, https_verified: false, tcp_connected: false, elapsed_ms: None, target: TARGET_HOST, message },
     }
 }
 
