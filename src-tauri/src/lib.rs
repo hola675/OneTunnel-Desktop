@@ -16,6 +16,14 @@ mod xray;
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .setup(|app| {
+            use tauri::Manager;
+            let dir = app.path().app_local_data_dir()?;
+            let logs = diagnostics::Diagnostics::new(dir.join("logs").join("events.jsonl"));
+            logs.record("INFO", "application", "started");
+            app.manage(logs);
+            Ok(())
+        })
         .manage(engine::Engine::default())
         .manage(auth::AuthState::default())
         .manage(policy::PolicyStore::default())
