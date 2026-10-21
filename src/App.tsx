@@ -14,7 +14,7 @@ type EngineStatus = {
   socksReady: boolean
   message: string
 }
-type EgressProbe = { tcpConnected: boolean; elapsedMs: number | null; target: string; message: string }
+type EgressProbe = { verificationLevel: 'remote_tcp_only' | 'unverified'; tcpConnected: boolean; elapsedMs: number | null; target: string; message: string }
 type RuntimeCheck = {
   ready: boolean
   executable: string | null
@@ -60,7 +60,7 @@ export default function App() {
       const status = await invoke<EngineStatus>('get_engine_status')
       setEngine(status)
       setEnginePollFailures(0)
-      if (!status.socksReady) setRemoteProbe(null)
+      if (!status.socksReady || status.phase !== 'running') setRemoteProbe(null)
       setSystemError(previous => previous === 'No se pudo consultar el estado del motor.' ? null : previous)
       setLastChecked(new Date())
       const signature = [status.phase, status.pid ?? '-', status.socksReady, status.message].join('|')
@@ -305,7 +305,7 @@ export default function App() {
           <section className="panel preferences" aria-label="Prueba de salida TCP remota">
             <div className="section-top on-panel"><h2>Conectividad remota por SOCKS5</h2><button type="button" className="text-action" disabled={!socksReady || remoteProbeBusy} onClick={() => void testRemote()}>{remoteProbeBusy ? 'Probando…' : 'Probar conexión TCP ↗'}</button></div>
             <p className="panel-subtitle">Prueba manual hacia un destino HTTPS público, usando SOCKS5 local. Confirma únicamente la apertura TCP: no verifica TLS, HTTPS ni la identidad de salida VPN.</p>
-            {remoteProbe && <p className={remoteProbe.tcpConnected ? 'message info-message' : 'message error-message'} role="status">{remoteProbe.tcpConnected ? 'TCP remoto accesible' : 'TCP remoto no accesible'} · {remoteProbe.target}:443 · {remoteProbe.elapsedMs === null ? 'Sin tiempo medido' : `${remoteProbe.elapsedMs} ms`} · {remoteProbe.message}</p>}
+            {remoteProbe && <p className={remoteProbe.tcpConnected ? 'message info-message' : 'message error-message'} role="status">{remoteProbe.tcpConnected ? 'TCP remoto accesible (no equivale a VPN verificada)' : 'TCP remoto no accesible'} · {remoteProbe.target}:443 · {remoteProbe.elapsedMs === null ? 'Sin tiempo medido' : `${remoteProbe.elapsedMs} ms`} · {remoteProbe.message}</p>}
           </section>
           <section className="panel preferences" aria-label="Registro de eventos de diagnóstico">
             <div className="section-top on-panel"><h2>Registro de eventos</h2><button type="button" className="text-action" onClick={() => setEvents([])} disabled={events.length === 0}>Limpiar registro</button></div>
