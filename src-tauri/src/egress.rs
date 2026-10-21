@@ -93,6 +93,26 @@ mod tests {
         worker.join().unwrap();
     }
     #[test]
+    fn reject_malformed_socks_reply() {
+        let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).unwrap();
+        let port = listener.local_addr().unwrap().port();
+        let worker = thread::spawn(move || {
+            let (mut stream, _) = listener.accept().unwrap();
+            let mut greeting = [0; 3];
+            stream.read_exact(&mut greeting).unwrap();
+            stream.write_all(&[5, 0]).unwrap();
+            let mut request = [0; 5];
+            stream.read_exact(&mut request).unwrap();
+            let mut tail = vec![0; request[4] as usize + 2];
+            stream.read_exact(&mut tail).unwrap();
+            stream.write_all(&[4, 0, 0, 1, 127, 0, 0, 1, 0, 0]).unwrap();
+        });
+        let result = probe(port);
+        assert!(!result.tcp_connected);
+        assert!(!result.https_verified);
+        worker.join().unwrap();
+    }
+    #[test]
     fn reject_failed_remote_connect() {
         let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).unwrap();
         let port = listener.local_addr().unwrap().port();
