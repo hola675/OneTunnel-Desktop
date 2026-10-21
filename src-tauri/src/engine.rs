@@ -55,13 +55,12 @@ impl Default for Engine {
 }
 
 impl Engine {
-    fn status_locked(inner: &Inner) -> EngineStatus {
+    fn status_locked(inner: &Inner, socks_ready: bool) -> EngineStatus {
         EngineStatus {
             phase: inner.phase.clone(),
             pid: inner.child.as_ref().map(Child::id),
             socks_address: format!("{SOCKS_HOST}:{DEFAULT_SOCKS_PORT}"),
-            socks_ready: inner.child.is_some()
-                && crate::health::socks5_ready(DEFAULT_SOCKS_PORT).is_ok(),
+            socks_ready,
             message: inner.message.clone(),
         }
     }
@@ -83,8 +82,9 @@ impl Engine {
                 Ok(None) => {}
             }
         }
+        let ready = guard.child.is_some() && crate::health::socks5_ready(DEFAULT_SOCKS_PORT).is_ok();
         if guard.child.is_some() && matches!(guard.phase, EnginePhase::Starting | EnginePhase::Running) {
-            if crate::health::socks5_ready(DEFAULT_SOCKS_PORT).is_ok() {
+            if ready {
                 guard.phase = EnginePhase::Running;
                 guard.message = "Local SOCKS5 handshake verified; remote VPN egress NOT verified".into();
             } else if matches!(guard.phase, EnginePhase::Running) {
@@ -92,7 +92,7 @@ impl Engine {
                 guard.message = "Local SOCKS5 handshake lost; remote VPN egress NOT verified".into();
             }
         }
-        Ok(Self::status_locked(&guard))
+        Ok(Self::status_locked(&guard, ready))
     }
 
     /// Start ONLY after the caller has verified integrity and written a validated config.
