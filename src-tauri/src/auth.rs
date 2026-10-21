@@ -39,6 +39,12 @@ impl AuthState {
         let guard = self.account.lock().map_err(|_| "Account state unavailable")?;
         Ok(guard.as_ref().map(UserData::server_options).unwrap_or_default())
     }
+    /// Resolve server credentials only inside Rust; the UI receives no Reality secrets.
+    pub fn selected_server(&self, location_index: usize, server_index: usize) -> Result<crate::config::RealityServer, String> {
+        let guard = self.account.lock().map_err(|_| "Account state unavailable")?;
+        let account = guard.as_ref().ok_or("Authentication required")?;
+        account.to_reality_server(location_index, server_index).map_err(str::to_owned)
+    }
     pub fn logout(&self) -> Result<(), String> {
         let mut guard = self.account.lock().map_err(|_| "Account state unavailable")?;
         self.generation.fetch_add(1, Ordering::SeqCst);
