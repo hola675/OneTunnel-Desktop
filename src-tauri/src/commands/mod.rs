@@ -32,6 +32,13 @@ pub fn get_engine_status(
 }
 
 #[tauri::command]
+pub fn stop_engine(
+    engine: tauri::State<'_, crate::engine::Engine>,
+) -> Result<crate::engine::EngineStatus, String> {
+    engine.stop()
+}
+
+#[tauri::command]
 pub async fn login_1vpn(
     auth: tauri::State<'_, crate::auth::AuthState>,
     email: String,
