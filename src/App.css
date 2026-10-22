@@ -92,3 +92,7 @@ button:disabled{cursor:not-allowed;opacity:.65}
 .traffic-actions{display:flex;gap:8px;flex-wrap:wrap}
 .traffic-actions .secondary-button{margin-top:0}
 @media(max-width:500px){.traffic-fields{grid-template-columns:1fr}}
+
+.server-choice{display:grid;gap:7px;text-align:left;margin-bottom:4px}
+.server-choice label{font-size:11px;font-weight:650;color:#cbdecc}
+.server-choice select{width:100%;max-width:240px;background:#101b14;color:#eaf4e9;border:1px solid #547357;border-radius:8px;padding:10px 12px;font-size:12px}
