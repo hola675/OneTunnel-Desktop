@@ -235,7 +235,9 @@ impl Engine {
             let _ = test_child.kill();
             let _ = test_child.wait();
             let _ = fs::remove_file(&path);
-            return Err("Xray rejected the configuration or exceeded the 10-second validation limit".into());
+            return Err(
+                "Xray rejected the configuration or exceeded the 10-second validation limit".into(),
+            );
         }
         let address = SocketAddr::new(IpAddr::V4(SOCKS_HOST), DEFAULT_SOCKS_PORT);
         let listener = TcpListener::bind(address).map_err(|e| {
