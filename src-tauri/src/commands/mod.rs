@@ -87,7 +87,9 @@ pub async fn connect_1vpn(
         return Err(runtime.message);
     }
     let executable = std::path::PathBuf::from(
-        runtime.executable.ok_or("Verified Xray path not available")?,
+        runtime
+            .executable
+            .ok_or("Verified Xray path not available")?,
     );
     let expected_hash = std::env::var("ONETUNNEL_XRAY_SHA256")
         .map_err(|_| "Trusted Xray SHA-256 must be configured before connecting")?;
