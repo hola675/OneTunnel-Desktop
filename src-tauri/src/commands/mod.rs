@@ -1,4 +1,5 @@
 use serde::Serialize;
+use std::sync::Arc;
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -26,18 +27,22 @@ pub fn inspect_xray_runtime() -> crate::xray::RuntimeCheck {
 
 #[tauri::command]
 pub fn get_engine_status(
-    engine: tauri::State<'_, crate::engine::Engine>,
+    engine: tauri::State<'_, Arc<crate::engine::Engine>>,
 ) -> Result<crate::engine::EngineStatus, String> {
     engine.status()
 }
 
 #[tauri::command]
 pub async fn login_1vpn(
+    engine: tauri::State<'_, Arc<crate::engine::Engine>>,
     auth: tauri::State<'_, crate::auth::AuthState>,
     email: String,
     password: String,
     token: Option<String>,
 ) -> Result<crate::auth::LoginResult, String> {
+    if engine.status()?.pid.is_some() {
+        return Err("Disconnect the VPN before changing accounts".into());
+    }
     auth.login(email, password, token).await
 }
 
@@ -49,8 +54,61 @@ pub fn get_account(
 }
 
 #[tauri::command]
-pub fn logout_1vpn(auth: tauri::State<'_, crate::auth::AuthState>) -> Result<(), String> {
+pub async fn logout_1vpn(
+    auth: tauri::State<'_, crate::auth::AuthState>,
+    engine: tauri::State<'_, Arc<crate::engine::Engine>>,
+) -> Result<(), String> {
+    let owned = Arc::clone(&*engine);
+    tauri::async_runtime::spawn_blocking(move || owned.stop())
+        .await
+        .map_err(|_| "Could not stop Xray when logging out")??;
     auth.logout()
+}
+
+#[tauri::command]
+pub fn list_1vpn_locations(
+    auth: tauri::State<'_, crate::auth::AuthState>,
+) -> Result<Vec<crate::provider::PublicLocationChoice>, String> {
+    auth.locations()
+}
+
+/// Only provider-authorized Reality servers may be used. No raw
+/// executable path, credentials or Reality JSON cross this IPC boundary.
+#[tauri::command]
+pub async fn connect_1vpn(
+    auth: tauri::State<'_, crate::auth::AuthState>,
+    engine: tauri::State<'_, Arc<crate::engine::Engine>>,
+    location_index: usize,
+    server_index: usize,
+) -> Result<crate::engine::EngineStatus, String> {
+    let server = auth.selected_server(location_index, server_index)?;
+    let runtime = crate::xray::inspect_runtime();
+    if !runtime.ready {
+        return Err(runtime.message);
+    }
+    let executable = std::path::PathBuf::from(
+        runtime.executable.ok_or("Verified Xray path not available")?,
+    );
+    let expected_hash = std::env::var("ONETUNNEL_XRAY_SHA256")
+        .map_err(|_| "Trusted Xray SHA-256 must be configured before connecting")?;
+    let owned = Arc::clone(&*engine);
+    tauri::async_runtime::spawn_blocking(move || {
+        // Re-verify immediately before executing (preflight can be stale).
+        crate::integrity::verify_sha256(&executable, &expected_hash)?;
+        owned.connect(&executable, &server)
+    })
+    .await
+    .map_err(|_| "Xray connection task failed")?
+}
+
+#[tauri::command]
+pub async fn disconnect_1vpn(
+    engine: tauri::State<'_, Arc<crate::engine::Engine>>,
+) -> Result<crate::engine::EngineStatus, String> {
+    let owned = Arc::clone(&*engine);
+    tauri::async_runtime::spawn_blocking(move || owned.stop())
+        .await
+        .map_err(|_| "Xray disconnection task failed")?
 }
 
 #[tauri::command]
