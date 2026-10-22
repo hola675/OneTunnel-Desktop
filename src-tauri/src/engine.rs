@@ -79,7 +79,11 @@ fn delete_config(inner: &mut Inner) {
 
 fn reap_process(inner: &mut Inner) -> Result<(), String> {
     if let Some(child) = inner.child.as_mut() {
-        if child.try_wait().map_err(|e| format!("Cannot inspect Xray: {e}"))?.is_none() {
+        if child
+            .try_wait()
+            .map_err(|e| format!("Cannot inspect Xray: {e}"))?
+            .is_none()
+        {
             child.kill().map_err(|e| format!("Cannot stop Xray: {e}"))?;
             child.wait().map_err(|e| format!("Cannot reap Xray: {e}"))?;
         }
@@ -107,8 +111,7 @@ fn write_config(config: &serde_json::Value) -> Result<PathBuf, String> {
         .write(true)
         .open(&path)
         .map_err(|_| "Cannot create temporary Xray configuration")?;
-    let bytes = serde_json::to_vec(config)
-        .map_err(|_| "Cannot serialize Xray configuration")?;
+    let bytes = serde_json::to_vec(config).map_err(|_| "Cannot serialize Xray configuration")?;
     let written = file.write_all(&bytes).and_then(|_| file.flush());
     drop(file);
     if written.is_err() {
@@ -120,8 +123,8 @@ fn write_config(config: &serde_json::Value) -> Result<PathBuf, String> {
 
 impl Engine {
     fn status_locked(inner: &Inner) -> EngineStatus {
-        let ready = inner.child.is_some()
-            && crate::health::socks5_ready(DEFAULT_SOCKS_PORT).is_ok();
+        let ready =
+            inner.child.is_some() && crate::health::socks5_ready(DEFAULT_SOCKS_PORT).is_ok();
         EngineStatus {
             phase: inner.phase.clone(),
             pid: inner.child.as_ref().map(Child::id),
@@ -184,18 +187,23 @@ impl Engine {
         executable: &Path,
         server: &crate::config::RealityServer,
     ) -> Result<EngineStatus, String> {
-        let _operation = self.operations.lock().map_err(|_| "Engine is unavailable")?;
+        let _operation = self
+            .operations
+            .lock()
+            .map_err(|_| "Engine is unavailable")?;
         {
             let guard = self.inner.lock().map_err(|_| "Engine state unavailable")?;
             if guard.child.is_some() {
-                return Err("Disconnect the current tunnel before connecting another server".into());
+                return Err(
+                    "Disconnect the current tunnel before connecting another server".into(),
+                );
             }
         }
         if !executable.is_file() {
             return Err("Verified Xray executable was not found".into());
         }
-        let config = crate::config::build_config(server, DEFAULT_SOCKS_PORT)
-            .map_err(str::to_owned)?;
+        let config =
+            crate::config::build_config(server, DEFAULT_SOCKS_PORT).map_err(str::to_owned)?;
         let path = write_config(&config)?;
         // Refuse malformed configurations before opening any local listener.
         let test = Command::new(executable)
@@ -210,11 +218,10 @@ impl Engine {
             return Err("Xray rejected the Reality configuration".into());
         }
         let address = SocketAddr::new(IpAddr::V4(SOCKS_HOST), DEFAULT_SOCKS_PORT);
-        let listener = TcpListener::bind(address)
-            .map_err(|e| {
-                let _ = fs::remove_file(&path);
-                format!("Local SOCKS port {DEFAULT_SOCKS_PORT} is unavailable: {e}")
-            })?;
+        let listener = TcpListener::bind(address).map_err(|e| {
+            let _ = fs::remove_file(&path);
+            format!("Local SOCKS port {DEFAULT_SOCKS_PORT} is unavailable: {e}")
+        })?;
         drop(listener);
 
         let child = match Command::new(executable)
@@ -260,7 +267,8 @@ impl Engine {
         let ip = match crate::health::verify_https_egress(DEFAULT_SOCKS_PORT) {
             Ok(ip) => ip,
             Err(error) => {
-                let reason = format!("SOCKS5 is ready but the HTTPS VPN verification failed: {error}");
+                let reason =
+                    format!("SOCKS5 is ready but the HTTPS VPN verification failed: {error}");
                 self.mark_failed(&reason)?;
                 return Err(reason);
             }
@@ -274,7 +282,10 @@ impl Engine {
     }
 
     pub fn stop(&self) -> Result<EngineStatus, String> {
-        let _operation = self.operations.lock().map_err(|_| "Engine is unavailable")?;
+        let _operation = self
+            .operations
+            .lock()
+            .map_err(|_| "Engine is unavailable")?;
         let mut guard = self.inner.lock().map_err(|_| "Engine state unavailable")?;
         reap_process(&mut guard)?;
         guard.phase = EnginePhase::Disconnected;
