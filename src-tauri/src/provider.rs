@@ -44,7 +44,6 @@ pub struct PublicAccountSummary {
     pub location_count: usize,
 }
 
-
 /// Public, non-sensitive server choices. Array indices are stable only for the
 /// current authenticated session; the backend revalidates them on connect.
 #[derive(Debug, Clone, Serialize)]
@@ -70,7 +69,8 @@ impl UserData {
             .iter()
             .enumerate()
             .filter_map(|(location_index, location)| {
-                let servers: Vec<PublicServerChoice> = location.servers
+                let servers: Vec<PublicServerChoice> = location
+                    .servers
                     .as_ref()
                     .into_iter()
                     .flatten()
