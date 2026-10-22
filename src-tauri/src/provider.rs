@@ -44,7 +44,63 @@ pub struct PublicAccountSummary {
     pub location_count: usize,
 }
 
+/// Public, non-sensitive server choices. Array indices are stable only for the
+/// current authenticated session; the backend revalidates them on connect.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PublicServerChoice {
+    pub index: usize,
+    pub host: String,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PublicLocationChoice {
+    pub index: usize,
+    pub name: String,
+    pub country_code: String,
+    pub is_premium: bool,
+    pub servers: Vec<PublicServerChoice>,
+}
+
 impl UserData {
+    pub fn available_locations(&self) -> Vec<PublicLocationChoice> {
+        self.locations
+            .iter()
+            .enumerate()
+            .filter_map(|(location_index, location)| {
+                let servers: Vec<PublicServerChoice> = location
+                    .servers
+                    .as_ref()
+                    .into_iter()
+                    .flatten()
+                    .enumerate()
+                    .filter_map(|(server_index, server)| {
+                        self.to_reality_server(location_index, server_index)
+                            .ok()
+                            .map(|_| PublicServerChoice {
+                                index: server_index,
+                                host: server.host.clone(),
+                            })
+                    })
+                    .collect();
+                if servers.is_empty() {
+                    return None;
+                }
+                Some(PublicLocationChoice {
+                    index: location_index,
+                    name: match location.city.as_deref().filter(|s| !s.trim().is_empty()) {
+                        Some(city) => format!("{city}, {}", location.country),
+                        None => location.country.clone(),
+                    },
+                    country_code: location.country_code.clone(),
+                    is_premium: location.is_premium,
+                    servers,
+                })
+            })
+            .collect()
+    }
+
     pub fn summary(&self) -> PublicAccountSummary {
         PublicAccountSummary {
             username: self.username.clone(),
@@ -120,6 +176,15 @@ mod tests {
         assert!(!json.contains("private-token"));
         assert!(!json.contains("publicKey"));
     }
+    #[test]
+    fn public_catalog_respects_premium_access() {
+        assert!(user(false).available_locations().is_empty());
+        assert_eq!(user(true).available_locations()[0].servers.len(), 1);
+        let json = serde_json::to_string(&user(true).available_locations()).unwrap();
+        assert!(!json.contains("private-token"));
+        assert!(!json.contains("publicKey"));
+    }
+
     #[test]
     fn server_without_sni_is_rejected() {
         let mut account = user(true);

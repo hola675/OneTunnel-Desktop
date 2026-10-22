@@ -10,7 +10,16 @@ type EngineStatus = {
   pid: number | null
   socksAddress: string
   socksReady: boolean
+  verified: boolean
+  egressIp: string | null
   message: string
+}
+type Location = {
+  index: number
+  name: string
+  countryCode: string
+  isPremium: boolean
+  servers: { index: number; host: string }[]
 }
 type RuntimeCheck = {
   ready: boolean
@@ -30,6 +39,10 @@ export default function App() {
   const [runtime, setRuntime] = useState<RuntimeCheck | null>(null)
   const [engine, setEngine] = useState<EngineStatus | null>(null)
   const [account, setAccount] = useState<Account | null>(null)
+  const [locations, setLocations] = useState<Location[]>([])
+  const [selectedLocation, setSelectedLocation] = useState<number | null>(null)
+  const [selectedServer, setSelectedServer] = useState<number | null>(null)
+  const [connectionBusy, setConnectionBusy] = useState(false)
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [twoFactor, setTwoFactor] = useState('')
@@ -40,6 +53,16 @@ export default function App() {
   const [systemError, setSystemError] = useState<string | null>(null)
   const [lastChecked, setLastChecked] = useState<Date | null>(null)
 
+  const readLocations = async () => {
+    try {
+      const available = await invoke<Location[]>('list_1vpn_locations')
+      setLocations(available)
+      setSelectedLocation(available[0]?.index ?? null)
+      setSelectedServer(available[0]?.servers[0]?.index ?? null)
+    } catch {
+      setSystemError('No se pudieron obtener los servidores autorizados de 1VPN.')
+    }
+  }
   const readEngine = async () => {
     try {
       const status = await invoke<EngineStatus>('get_engine_status')
@@ -67,6 +90,7 @@ export default function App() {
     invoke<Account | null>('get_account').then(setAccount)
       .catch(() => setSystemError('No se pudo consultar la cuenta.'))
     void readEngine()
+    void readLocations()
     void checkRuntime()
     // Keep polling independent of the selected screen.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -92,6 +116,7 @@ export default function App() {
         setTwoFactor('')
       } else {
         setAccount(result.account)
+        await readLocations()
         setPassword('')
         setTwoFactor('')
         setRequires2fa(false)
@@ -107,20 +132,47 @@ export default function App() {
     try {
       await invoke('logout_1vpn')
       setAccount(null)
+      setLocations([])
+      setSelectedLocation(null)
+      setSelectedServer(null)
+      await readEngine()
       setPassword('')
       setTwoFactor('')
       setRequires2fa(false)
     } catch { setLoginError('No se pudo cerrar la sesión.') }
   }
 
+  const activeLocation = locations.find(location => location.index === selectedLocation)
+  const selectionReady = Boolean(activeLocation?.servers.some(server => server.index === selectedServer))
   const phase = engine?.phase ?? 'disconnected'
   const socksReady = Boolean(engine?.socksReady)
   const runtimeReady = Boolean(runtime?.ready)
-  const connectionVerified = false // No HTTPS egress verification IPC exists yet.
+  const connectionVerified = Boolean(engine?.verified && engine?.socksReady)
   const connectionLabel = phase === 'error' ? 'Error del motor' :
-    phase === 'running' ? 'Motor en ejecución (sin verificar)' :
-    phase === 'starting' ? 'Iniciando motor' : 'Desconectado'
-  const readiness = [Boolean(account), runtimeReady, socksReady]
+    connectionVerified ? 'Túnel HTTPS verificado' :
+    phase === 'running' ? 'Motor activo sin verificar' :
+    phase === 'starting' ? 'Comprobando conexión' : 'Desconectado'
+  const readiness = [Boolean(account), runtimeReady, selectionReady]
+  const toggleConnection = async () => {
+    if (connectionBusy) return
+    setConnectionBusy(true)
+    setSystemError(null)
+    try {
+      const status = engine?.pid
+        ? await invoke<EngineStatus>('disconnect_1vpn')
+        : await invoke<EngineStatus>('connect_1vpn', {
+            locationIndex: selectedLocation,
+            serverIndex: selectedServer
+          })
+      setEngine(status)
+      setLastChecked(new Date())
+    } catch (reason) {
+      setSystemError(typeof reason === 'string' ? reason : 'Error al iniciar o detener el túnel.')
+      await readEngine()
+    } finally {
+      setConnectionBusy(false)
+    }
+  }
   const readyCount = readiness.filter(Boolean).length
   const nav: { id: Section; label: string; symbol: string }[] = [
     { id: 'overview', label: 'Inicio', symbol: '◉' },
@@ -176,26 +228,53 @@ export default function App() {
               <p>Conexión VLESS/Reality a través de un proxy SOCKS5 local. No modifica las rutas de Windows.</p>
             </div>
             <div className="hero-action">
-              <button type="button" className="primary-button" disabled title="Requiere conexión y verificación HTTPS del túnel">Conectar <span aria-hidden="true">↗</span></button>
-              <span>Disponible al completar la validación de red</span>
+              {!engine?.pid && <div className="server-choice">
+                <label htmlFor="vpn-location">Ubicación 1VPN</label>
+                <select id="vpn-location" value={selectedLocation ?? ''} disabled={!locations.length || connectionBusy}
+                  onChange={event => {
+                    const index = Number(event.target.value)
+                    const location = locations.find(item => item.index === index)
+                    setSelectedLocation(index)
+                    setSelectedServer(location?.servers[0]?.index ?? null)
+                  }}>
+                  {!locations.length && <option value="">Inicia sesión para elegir</option>}
+                  {locations.map(location => <option key={location.index} value={location.index}>
+                    {location.name}{location.isPremium ? ' · Premium' : ' · Free'}
+                  </option>)}
+                </select>
+                <label htmlFor="vpn-server">Servidor</label>
+                <select id="vpn-server" value={selectedServer ?? ''} disabled={!selectionReady || connectionBusy}
+                  onChange={event => setSelectedServer(Number(event.target.value))}>
+                  {(activeLocation?.servers ?? []).map(server => <option key={server.index} value={server.index}>
+                    {server.host}
+                  </option>)}
+                </select>
+              </div>}
+              <button type="button" className="primary-button"
+                onClick={() => void toggleConnection()}
+                disabled={connectionBusy || (!engine?.pid && (!account || !runtimeReady || !selectionReady))}>
+                {connectionBusy ? 'Procesando…' : engine?.pid ? 'Desconectar' : 'Conectar'}
+                <span aria-hidden="true">↗</span>
+              </button>
+              <span>{connectionVerified ? 'SOCKS5 y salida HTTPS comprobados' : 'Solo las aplicaciones configuradas utilizarán el proxy SOCKS5'}</span>
             </div>
           </section>
 
           <div className="section-top"><h2>Resumen operativo</h2><span>Información proporcionada por el motor local</span></div>
           <div className="metrics">
             <article className="metric"><span>CUENTA 1VPN</span><strong>{account ? account.isPremium ? 'Premium' : 'Free' : 'Sin sesión'}</strong><small>{account ? account.username : 'Accede para ver tus ubicaciones'}</small></article>
-            <article className="metric"><span>UBICACIONES DISPONIBLES</span><strong>{account ? account.locationCount : '—'}</strong><small>{account ? 'Según la sesión 1VPN' : 'Inicia sesión para consultar'}</small></article>
+            <article className="metric"><span>UBICACIONES DISPONIBLES</span><strong>{locations.length || '—'}</strong><small>{account ? 'Servidores autorizados y válidos' : 'Inicia sesión para consultar'}</small></article>
             <article className="metric"><span>SOCKS5 LOCAL</span><strong>{socksReady ? 'Responde' : 'No verificado'}</strong><small className="monospace">{engine?.socksAddress ?? '127.0.0.1:10808'}</small></article>
           </div>
 
-          <div className="section-top"><h2>Preparación del túnel</h2><span>{readyCount} de 3 comprobaciones básicas</span></div>
-          <div className="readiness-track" aria-label={`${readyCount} de 3 comprobaciones básicas listas`}><div style={{ width: `${readyCount / 3 * 100}%` }} /></div>
+          <div className="section-top"><h2>Preparación del túnel</h2><span>{readyCount} de 3 requisitos de conexión</span></div>
+          <div className="readiness-track" aria-label={`${readyCount} de 3 requisitos de conexión listos`}><div style={{ width: `${readyCount / 3 * 100}%` }} /></div>
           <div className="checklist">
             <div><span className={account ? 'check-pass' : 'check-wait'}>{account ? '✓' : '○'}</span><div><strong>Cuenta</strong><small>{account ? 'Sesión activa' : 'Sin iniciar sesión'}</small></div><button type="button" onClick={() => setSection('account')}>Gestionar →</button></div>
             <div><span className={runtimeReady ? 'check-pass' : 'check-wait'}>{runtimeReady ? '✓' : '○'}</span><div><strong>Motor Xray</strong><small>{runtimeReady ? 'Hash y versión verificados' : 'Verificación pendiente'}</small></div><button type="button" onClick={() => setSection('diagnostics')}>Revisar →</button></div>
-            <div><span className={socksReady ? 'check-pass' : 'check-wait'}>{socksReady ? '✓' : '○'}</span><div><strong>Puerto SOCKS5</strong><small>{socksReady ? 'Responde al handshake' : 'Sin respuesta verificada'}</small></div><button type="button" onClick={() => setSection('diagnostics')}>Revisar →</button></div>
+            <div><span className={selectionReady ? 'check-pass' : 'check-wait'}>{selectionReady ? '✓' : '○'}</span><div><strong>Servidor autorizado</strong><small>{selectionReady ? 'Destino Reality válido seleccionado' : 'Selecciona un servidor de tu cuenta'}</small></div><button type="button" onClick={() => setSection('overview')}>Seleccionar →</button></div>
           </div>
-          <p className="footnote">Las comprobaciones básicas no equivalen a una VPN conectada. Para ello hace falta verificar salida HTTPS real. No se muestran velocidades ni tráfico inventados.</p>
+          <p className="footnote">Conectado solo significa que una prueba HTTPS pasó a través del SOCKS5 de OneTunnel. No hay VPN global, captura WFP ni garantía de protección de aplicaciones externas.</p>
         </>}
 
         {section === 'account' && <section className="panel account-panel">
@@ -245,9 +324,9 @@ export default function App() {
               <div className="separator"/><span className="technical">{engine?.socksAddress ?? '127.0.0.1:10808'}</span>
             </article>
             <article className="panel diagnostic">
-              <span className="tiny-label">SALIDA HTTPS</span><strong>Pendiente</strong>
-              <span className="small-muted">No existe aún una prueba de salida VPN extremo a extremo.</span>
-              <div className="separator"/><span className="technical">IP de salida: — · Latencia: —</span>
+              <span className="tiny-label">SALIDA HTTPS</span><strong>{connectionVerified ? 'Verificada' : 'Sin verificar'}</strong>
+              <span className="small-muted">{connectionVerified ? 'Se verificó HTTPS sobre SOCKS5 al conectar (no es vigilancia continua).' : 'Requiere iniciar el motor y pasar la prueba HTTPS.'}</span>
+              <div className="separator"/><span className="technical">IP de salida: {connectionVerified ? engine?.egressIp : '—'}</span>
             </article>
           </div>
           <p className="footnote">Última consulta local: {lastChecked?.toLocaleTimeString() ?? '—'}. Las métricas no verificadas se mantienen vacías.</p>
@@ -279,7 +358,7 @@ export default function App() {
 
         <footer className="workspace-footer">
           <span>{appInfo ? `${appInfo.appName} · v${appInfo.version} · ${appInfo.platform}` : 'OneTunnel Desktop · Consultando versión'}</span>
-          <span>{appInfo?.coreStatus ?? 'Motor sin inicializar'} · Interfaz de diagnóstico</span>
+          <span>{appInfo?.coreStatus ?? 'Motor sin inicializar'} · Cliente SOCKS5</span>
         </footer>
       </div>
     </main>
