@@ -78,12 +78,13 @@ fn delete_config(inner: &mut Inner) {
 }
 
 fn reap_process(inner: &mut Inner) -> Result<(), String> {
-    if let Some(mut child) = inner.child.take() {
+    if let Some(child) = inner.child.as_mut() {
         if child.try_wait().map_err(|e| format!("Cannot inspect Xray: {e}"))?.is_none() {
             child.kill().map_err(|e| format!("Cannot stop Xray: {e}"))?;
             child.wait().map_err(|e| format!("Cannot reap Xray: {e}"))?;
         }
     }
+    inner.child = None;
     delete_config(inner);
     inner.verified = false;
     inner.egress_ip = None;
@@ -106,8 +107,10 @@ fn write_config(config: &serde_json::Value) -> Result<PathBuf, String> {
         .write(true)
         .open(&path)
         .map_err(|_| "Cannot create temporary Xray configuration")?;
-    let written = serde_json::to_writer(&mut file, config)
-        .and_then(|_| file.flush().map_err(serde_json::Error::io));
+    let bytes = serde_json::to_vec(config)
+        .map_err(|_| "Cannot serialize Xray configuration")?;
+    let written = file.write_all(&bytes).and_then(|_| file.flush());
+    drop(file);
     if written.is_err() {
         let _ = fs::remove_file(&path);
         return Err("Cannot write temporary Xray configuration".into());
