@@ -206,16 +206,36 @@ impl Engine {
             crate::config::build_config(server, DEFAULT_SOCKS_PORT).map_err(str::to_owned)?;
         let path = write_config(&config)?;
         // Refuse malformed configurations before opening any local listener.
-        let test = Command::new(executable)
+        let mut test_child = match Command::new(executable)
             .args(["run", "-test", "-config"])
             .arg(&path)
             .stdin(Stdio::null())
             .stdout(Stdio::null())
             .stderr(Stdio::null())
-            .status();
-        if !matches!(test, Ok(status) if status.success()) {
+            .spawn()
+        {
+            Ok(child) => child,
+            Err(_) => {
+                let _ = fs::remove_file(&path);
+                return Err("Could not validate Xray Reality configuration".into());
+            }
+        };
+        let mut config_valid = false;
+        for _ in 0..100 {
+            match test_child.try_wait() {
+                Ok(Some(status)) => {
+                    config_valid = status.success();
+                    break;
+                }
+                Ok(None) => thread::sleep(Duration::from_millis(100)),
+                Err(_) => break,
+            }
+        }
+        if !config_valid {
+            let _ = test_child.kill();
+            let _ = test_child.wait();
             let _ = fs::remove_file(&path);
-            return Err("Xray rejected the Reality configuration".into());
+            return Err("Xray rejected the configuration or exceeded the 10-second validation limit".into());
         }
         let address = SocketAddr::new(IpAddr::V4(SOCKS_HOST), DEFAULT_SOCKS_PORT);
         let listener = TcpListener::bind(address).map_err(|e| {
