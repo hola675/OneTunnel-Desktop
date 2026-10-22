@@ -28,8 +28,14 @@ pub enum LoginResult {
 
 impl AuthState {
     pub fn locations(&self) -> Result<Vec<crate::provider::PublicLocationChoice>, String> {
-        let guard = self.account.lock().map_err(|_| "Account state unavailable")?;
-        Ok(guard.as_ref().map(UserData::available_locations).unwrap_or_default())
+        let guard = self
+            .account
+            .lock()
+            .map_err(|_| "Account state unavailable")?;
+        Ok(guard
+            .as_ref()
+            .map(UserData::available_locations)
+            .unwrap_or_default())
     }
 
     pub fn selected_server(
@@ -37,8 +43,12 @@ impl AuthState {
         location_index: usize,
         server_index: usize,
     ) -> Result<crate::config::RealityServer, String> {
-        let guard = self.account.lock().map_err(|_| "Account state unavailable")?;
-        guard.as_ref()
+        let guard = self
+            .account
+            .lock()
+            .map_err(|_| "Account state unavailable")?;
+        guard
+            .as_ref()
             .ok_or_else(|| "Sign in to 1VPN before choosing a server".to_owned())?
             .to_reality_server(location_index, server_index)
             .map_err(str::to_owned)
